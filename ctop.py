@@ -3,13 +3,20 @@
 Iterate over all cgroup mountpoints and output global cgroup statistics
 '''
 
-import os, stat
+import os
+import sys
+import stat
 import pwd
 import time
-import tabulate
 import psutil
 
 from collections import defaultdict
+
+try:
+    import curses
+except ImportError:
+    print >> sys.stderr, "Curse is not available on this system. Exiting."
+    sys.exit(0)
 
 HIDE_EMPTY_CGROUP = True
 UPDATE_INTERVAL = 1.0 # seconds
@@ -163,7 +170,7 @@ def collect(measures):
                 for key, value in measures['data'][cgroup.name]['cpuacct.stat'].iteritems():
                     measures['data'][cgroup.name]['cpuacct.stat.diff'][key] = value - prev[key]
 
-def display(measures, sort_key):
+def display(scr, measures, sort_key):
     # Time
     prev_time = measures['global'].get('time', -1)
     cur_time = time.time()
@@ -174,21 +181,29 @@ def display(measures, sort_key):
     results = sorted(measures['data'].iteritems(), key=lambda cgroup: int(cgroup[1].get(sort_key, 0)), reverse=True)
 
     # Display statistics: Find the biggest user
-    table = [['cgroup', 'owner', 'processes', 'current memory', 'peak memory', 'system cpu', 'user cpu']]
-    cpu_to_percent = 100.0 / measures['global']['scheduler_frequency'] / measures['global']['total_cpu'] / time_delta
+    curses.endwin()
+    scr.addstr(0, 0, '                memory                  cpu')
+    scr.addstr(1, 0, 'owner      proc current         peak    system user cgroup')
+    LINE_TMPL = "{:10s} {:4d} {:15s} {:7s} {: >5.1%} {: >5.1%} {}"
+    cpu_to_percent = measures['global']['scheduler_frequency'] * measures['global']['total_cpu'] * time_delta
+
+    lineno = 2
     for cgroup, data in results:
         cpu_usage = data.get('cpuacct.stat.diff', {})
-        table.append([
-            cgroup,
+        line = (
             data.get('owner', 'nobody'),
             len(data['tasks']),
             "%s/%s" % (to_human(data.get('memory.usage_in_bytes', 0)), to_human(data.get('memory.limit_in_bytes', measures['global']['total_memory']))),
             to_human(data.get('memory.max_usage_in_bytes', 0)),
-            cpu_usage.get('system', 0) * cpu_to_percent,
-            cpu_usage.get('user', 0) * cpu_to_percent,
-        ])
+            cpu_usage.get('system', 0) / cpu_to_percent,
+            cpu_usage.get('user', 0) / cpu_to_percent,
+            cgroup,
+        )
 
-    print tabulate.tabulate(table, headers="firstrow")
+        scr.addstr(lineno, 0, LINE_TMPL.format(*line))
+        lineno += 1
+
+    stdscr.refresh()
 
 if __name__ == "__main__":
     # Initialization, global system data
@@ -201,11 +216,23 @@ if __name__ == "__main__":
         }
     }
 
+    # Curse initialization
+    stdscr = curses.initscr()
+    curses.noecho()    # do not echo text
+    curses.cbreak()    # do not wait for "enter"
+    curses.curs_set(0) # hide cursor
+    stdscr.keypad(1)   # parse keypad controll sequences
+
     try:
         while True:
             collect(measures)
-            display(measures, 'memory.usage_in_bytes')
+            display(stdscr, measures, 'memory.usage_in_bytes')
             time.sleep(1.0)
     except KeyboardInterrupt:
-        print "Bye !"
+        pass
+    finally:
+        curses.nocbreak()
+        stdscr.keypad(0)
+        curses.echo()
+        curses.endwin()
 
