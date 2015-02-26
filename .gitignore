@@ -1,0 +1,9 @@
+# Temp files
+*.swp
+*.pyc
+
+# Build artefacts
+build
+*.egg-info
+dist
+
