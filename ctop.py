@@ -42,11 +42,11 @@ CGROUPS = {
 
 def to_human(num, suffix='B'):
     num = int(num)
-    for unit in ['','K','M','G','T','P','E','Z']:
+    for unit in [' ','K','M','G','T','P','E','Z']:
         if abs(num) < 1024.0:
-            return "%3.1f%s%s" % (num, unit, suffix)
+            return "{:.1f}{}{}".format(num, unit, suffix)
         num /= 1024.0
-    return "%.1f%s%s" % (num, 'Y', suffix)
+    return "{:5.1d}{}{}" % (num, 'Y', suffix)
 
 ## Grab system facts
 
@@ -176,31 +176,36 @@ def display(scr, measures, sort_key):
     cur_time = time.time()
     time_delta = cur_time - prev_time
     measures['global']['time'] = cur_time
+    cpu_to_percent = measures['global']['scheduler_frequency'] * measures['global']['total_cpu'] * time_delta
+
+    # Build data lines
+    results = []
+    for cgroup, data in measures['data'].iteritems():
+        cpu_usage = data.get('cpuacct.stat.diff', {})
+        line = {
+            'owner': data.get('owner', 'nobody'),
+            'tasks': len(data['tasks']),
+            'memory_cur': "{: >7}/{: <7}".format(to_human(data.get('memory.usage_in_bytes', 0)), to_human(data.get('memory.limit_in_bytes', measures['global']['total_memory']))),
+            'memory_peak': to_human(data.get('memory.max_usage_in_bytes', 0)),
+            'cpu_syst': cpu_usage.get('system', 0) / cpu_to_percent,
+            'cpu_user': cpu_usage.get('user', 0) / cpu_to_percent,
+            'cgroup': cgroup,
+        }
+        line['cpu_total'] = line['cpu_syst'] + line['cpu_user']
+        results.append(line)
 
     # Sort
-    results = sorted(measures['data'].iteritems(), key=lambda cgroup: int(cgroup[1].get(sort_key, 0)), reverse=True)
+    results = sorted(results, key=lambda line: line.get(sort_key, 0), reverse=True)
 
-    # Display statistics: Find the biggest user
+    # Display statistics
     curses.endwin()
     scr.addstr(0, 0, '                memory                  cpu')
     scr.addstr(1, 0, 'owner      proc current         peak    system user cgroup')
-    LINE_TMPL = "{:10s} {:4d} {:15s} {:7s} {: >5.1%} {: >5.1%} {}"
-    cpu_to_percent = measures['global']['scheduler_frequency'] * measures['global']['total_cpu'] * time_delta
+    LINE_TMPL = "{owner:10s} {tasks:4d} {memory_cur:15s} {memory_peak:>7s} {cpu_syst: >5.1%} {cpu_user: >5.1%} {cgroup}"
 
     lineno = 2
-    for cgroup, data in results:
-        cpu_usage = data.get('cpuacct.stat.diff', {})
-        line = (
-            data.get('owner', 'nobody'),
-            len(data['tasks']),
-            "%s/%s" % (to_human(data.get('memory.usage_in_bytes', 0)), to_human(data.get('memory.limit_in_bytes', measures['global']['total_memory']))),
-            to_human(data.get('memory.max_usage_in_bytes', 0)),
-            cpu_usage.get('system', 0) / cpu_to_percent,
-            cpu_usage.get('user', 0) / cpu_to_percent,
-            cgroup,
-        )
-
-        scr.addstr(lineno, 0, LINE_TMPL.format(*line))
+    for line in results:
+        scr.addstr(lineno, 0, LINE_TMPL.format(**line))
         lineno += 1
 
     stdscr.refresh()
@@ -226,7 +231,7 @@ if __name__ == "__main__":
     try:
         while True:
             collect(measures)
-            display(stdscr, measures, 'memory.usage_in_bytes')
+            display(stdscr, measures, 'cpu_total')
             time.sleep(UPDATE_INTERVAL)
     except KeyboardInterrupt:
         pass
