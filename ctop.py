@@ -227,7 +227,7 @@ if __name__ == "__main__":
         while True:
             collect(measures)
             display(stdscr, measures, 'memory.usage_in_bytes')
-            time.sleep(1.0)
+            time.sleep(UPDATE_INTERVAL)
     except KeyboardInterrupt:
         pass
     finally:
