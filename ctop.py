@@ -227,18 +227,19 @@ if __name__ == "__main__":
         }
     }
 
-    # Curse initialization
-    stdscr = curses.initscr()
-    curses.start_color() # load colors
-    curses.noecho()      # do not echo text
-    curses.cbreak()      # do not wait for "enter"
-    curses.curs_set(0)   # hide cursor
-    stdscr.keypad(1)     # parse keypad controll sequences
-
-    # Curses colors
-    curses.init_pair(1, curses.COLOR_WHITE, curses.COLOR_GREEN)
-
     try:
+        # Curse initialization
+        stdscr = curses.initscr()
+        curses.start_color() # load colors
+        curses.noecho()      # do not echo text
+        curses.cbreak()      # do not wait for "enter"
+        curses.curs_set(0)   # hide cursor
+        stdscr.keypad(1)     # parse keypad controll sequences
+
+        # Curses colors
+        curses.init_pair(1, curses.COLOR_WHITE, curses.COLOR_GREEN)
+
+        # Main loop
         while True:
             collect(measures)
             display(stdscr, measures, 'cpu_total')
