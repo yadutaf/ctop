@@ -8,6 +8,8 @@ import time
 import tabulate
 import psutil
 
+from collections import defaultdict
+
 HIDE_EMPTY_CGROUP = True
 UPDATE_INTERVAL = 1.0 # seconds
 CGROUP_MOUNTPOINTS={}
@@ -17,6 +19,17 @@ CGROUPS = {
     'prev': {},
     'cur': {},
 }
+
+# TODO:
+# - curse list
+# - select refresh rate
+# - select sort column
+# - visual CPU/memory usage
+# - block-io
+# - auto-color
+# - adapt name / commands to underlying container system
+# - exact timing in CPU derivation
+# - hiereachical view
 
 ## Utils
 
@@ -106,69 +119,73 @@ def cgroups(base_path):
 
 ## Grab cgroup data
 
-CGROUP_DATA = {}
+def collect(measures):
+    # Collect global data
+    if 'cpuacct' in CGROUP_MOUNTPOINTS:
+        # list all "folders" under mountpoint
+        for cgroup in cgroups(CGROUP_MOUNTPOINTS['cpuacct']):
+            measures['data'][cgroup.name]['tasks'] = cgroup['tasks']
 
-def cgroup_push_data(cgroup, key):
-    if cgroup not in CGROUP_DATA:
-        CGROUP_DATA[cgroup] = {}
-    CGROUP_DATA[cgroup][key] = cgroup[key]
+    # Collect memory statistics
+    if 'memory' in CGROUP_MOUNTPOINTS:
+        # list all "folders" under mountpoint
+        for cgroup in cgroups(CGROUP_MOUNTPOINTS['memory']):
+            measures['data'][cgroup.name]['memory.usage_in_bytes'] = cgroup['memory.usage_in_bytes']
+            measures['data'][cgroup.name]['memory.max_usage_in_bytes'] = cgroup['memory.usage_in_bytes']
+            measures['data'][cgroup.name]['memory.limit_in_bytes'] = min(int(cgroup['memory.limit_in_bytes']), measures['global']['total_memory'])
 
-def sort_by(key):
-    return sorted(CGROUP_DATA.iteritems(), key=lambda cgroup: int(cgroup[1].get(key, 0)))
+    # Collect CPU statistics
+    if 'cpuacct' in CGROUP_MOUNTPOINTS:
+        # list all "folders" under mountpoint
+        for cgroup in cgroups(CGROUP_MOUNTPOINTS['cpuacct']):
+            # Collect CPU stats
+            measures['data'][cgroup.name]['cpuacct.stat'] = cgroup['cpuacct.stat']
 
-# Collect memory statistics
-if 'memory' in CGROUP_MOUNTPOINTS:
-    system_memory = psutil.virtual_memory().total
-    # list all "folders" under mountpoint
-    for cgroup in cgroups(CGROUP_MOUNTPOINTS['memory']):
-        if cgroup.name not in CGROUP_DATA:
-            CGROUP_DATA[cgroup.name] = {}
-        CGROUP_DATA[cgroup.name]['memory.usage_in_bytes'] = cgroup['memory.usage_in_bytes']
-        CGROUP_DATA[cgroup.name]['memory.max_usage_in_bytes'] = cgroup['memory.usage_in_bytes']
-        CGROUP_DATA[cgroup.name]['memory.limit_in_bytes'] = min(int(cgroup['memory.limit_in_bytes']), system_memory)
+            # Collect CPU increase on run > 1
+            if 'cpuacct.stat.diff' not in measures['data'][cgroup.name]:
+                measures['data'][cgroup.name]['cpuacct.stat.diff'] = {'user':0, 'system':0}
+            else:
+                prev = measures['data'][cgroup.name]['cpuacct.stat']
+                for key, value in measures['data'][cgroup.name]['cpuacct.stat'].iteritems():
+                    measures['data'][cgroup.name]['cpuacct.stat.diff'][key] = value - prev[key]
 
-# Collect CPU statistics
-if 'cpuacct' in CGROUP_MOUNTPOINTS:
-    HZ = os.sysconf('SC_CLK_TCK')
-    CPU_CNT = psutil. cpu_count()
-    # list all "folders" under mountpoint
-    for cgroup in cgroups(CGROUP_MOUNTPOINTS['cpuacct']):
-        if cgroup.name not in CGROUP_DATA:
-            CGROUP_DATA[cgroup.name] = {}
+def display(measures, sort_key):
+    # sort
+    results = sorted(measures['data'].iteritems(), key=lambda cgroup: int(cgroup[1].get(sort_key, 0)))
 
-        CGROUP_DATA[cgroup.name]['tasks'] = cgroup['tasks']
-        CGROUP_DATA[cgroup.name]['cpuacct.stat'] = cgroup['cpuacct.stat']
-        CGROUP_DATA[cgroup.name]['cpuacct.stat.diff'] = {}
-        
-        # Handle potentially vanishing tasks
-        for key, value in CGROUP_DATA[cgroup.name]['cpuacct.stat'].iteritems():
-            CGROUP_DATA[cgroup.name]['cpuacct.stat.diff'][key] = 0
+    # Display statistics: Find the biggest user
+    table = [['cgroup', 'processes', 'current memory', 'peak memory', 'system cpu', 'user cpu']]
+    cpu_to_percent = 100.0 / measures['global']['scheduler_frequency'] / measures['global']['total_cpu']
+    print cpu_to_percent
+    for cgroup, data in results:
+        cpu_usage = data.get('cpuacct.stat.diff', {})
+        table.append([
+            cgroup,
+            len(data['tasks']),
+            "%s/%s" % (to_human(data.get('memory.usage_in_bytes', 0)), to_human(data.get('memory.limit_in_bytes', measures['global']['total_memory']))),
+            to_human(data.get('memory.max_usage_in_bytes', 0)),
+            cpu_usage.get('system', 0) * cpu_to_percent,
+            cpu_usage.get('user', 0) * cpu_to_percent,
+        ])
 
-    time.sleep(1.0)
+    print tabulate.tabulate(table, headers="firstrow")
 
-    for cgroup in cgroups(CGROUP_MOUNTPOINTS['cpuacct']):
-        if cgroup.name not in CGROUP_DATA:
-            CGROUP_DATA[cgroup.name] = {}
-            prev = {'user':0, 'system':0}
-        else:
-            prev = CGROUP_DATA[cgroup.name]['cpuacct.stat']
- 
-        CGROUP_DATA[cgroup.name]['cpuacct.stat'] = cgroup['cpuacct.stat']
-        for key, value in CGROUP_DATA[cgroup.name]['cpuacct.stat'].iteritems():
-            CGROUP_DATA[cgroup.name]['cpuacct.stat.diff'][key] = value - prev[key]
+if __name__ == "__main__":
+    # Initialization, global system data
+    measures = {
+        'data': defaultdict(dict),
+        'global': {
+            'total_cpu': psutil.cpu_count(),
+            'total_memory': psutil.virtual_memory().total,
+            'scheduler_frequency': os.sysconf('SC_CLK_TCK'),
+        }
+    }
 
-# Display statistics: Find the biggest user
-table = [['cgroup', 'processes', 'current memory', 'peak memory', 'system cpu', 'user cpu']]
-for cgroup, data in sort_by('memory.usage_in_bytes'):
-    cpu_usage = data.get('cpuacct.stat.diff', {})
-    table.append([
-        cgroup,
-        len(data['tasks']),
-        "%s/%s" % (to_human(data.get('memory.usage_in_bytes', -1)), to_human(data.get('memory.limit_in_bytes', system_memory))),
-        to_human(data.get('memory.max_usage_in_bytes', -1)),
-        cpu_usage.get('system', 0) * 100.0 / HZ / CPU_CNT,
-        cpu_usage.get('user', 0) * 100.0 / HZ / CPU_CNT,
-    ])
-
-print tabulate.tabulate(table, headers="firstrow") 
+    try:
+        while True:
+            collect(measures)
+            display(measures, 'memory.usage_in_bytes')
+            time.sleep(1.0)
+    except KeyboardInterrupt:
+        print "Bye !"
 
