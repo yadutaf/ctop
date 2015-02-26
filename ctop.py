@@ -29,7 +29,6 @@ CGROUPS = {
 # - block-io
 # - auto-color
 # - adapt name / commands to underlying container system
-# - exact timing in CPU derivation
 # - hiereachical view
 
 ## Utils
@@ -130,11 +129,16 @@ def cgroups(base_path):
 ## Grab cgroup data
 
 def collect(measures):
+
     # Collect global data
     if 'cpuacct' in CGROUP_MOUNTPOINTS:
         # list all "folders" under mountpoint
         for cgroup in cgroups(CGROUP_MOUNTPOINTS['cpuacct']):
+            # Collect tasks
             measures['data'][cgroup.name]['tasks'] = cgroup['tasks']
+
+            # Collect user
+            measures['data'][cgroup.name]['owner'] = cgroup.owner
 
     # Collect memory statistics
     if 'memory' in CGROUP_MOUNTPOINTS:
@@ -148,27 +152,30 @@ def collect(measures):
     if 'cpuacct' in CGROUP_MOUNTPOINTS:
         # list all "folders" under mountpoint
         for cgroup in cgroups(CGROUP_MOUNTPOINTS['cpuacct']):
-            # Collect user
-            measures['data'][cgroup.name]['owner'] = cgroup.owner
-
             # Collect CPU stats
+            prev = measures['data'][cgroup.name].get('cpuacct.stat', None)
             measures['data'][cgroup.name]['cpuacct.stat'] = cgroup['cpuacct.stat']
 
             # Collect CPU increase on run > 1
-            if 'cpuacct.stat.diff' not in measures['data'][cgroup.name]:
+            if prev is None:
                 measures['data'][cgroup.name]['cpuacct.stat.diff'] = {'user':0, 'system':0}
             else:
-                prev = measures['data'][cgroup.name]['cpuacct.stat']
                 for key, value in measures['data'][cgroup.name]['cpuacct.stat'].iteritems():
                     measures['data'][cgroup.name]['cpuacct.stat.diff'][key] = value - prev[key]
 
 def display(measures, sort_key):
-    # sort
-    results = sorted(measures['data'].iteritems(), key=lambda cgroup: int(cgroup[1].get(sort_key, 0)))
+    # Time
+    prev_time = measures['global'].get('time', -1)
+    cur_time = time.time()
+    time_delta = cur_time - prev_time
+    measures['global']['time'] = cur_time
+
+    # Sort
+    results = sorted(measures['data'].iteritems(), key=lambda cgroup: int(cgroup[1].get(sort_key, 0)), reverse=True)
 
     # Display statistics: Find the biggest user
     table = [['cgroup', 'owner', 'processes', 'current memory', 'peak memory', 'system cpu', 'user cpu']]
-    cpu_to_percent = 100.0 / measures['global']['scheduler_frequency'] / measures['global']['total_cpu']
+    cpu_to_percent = 100.0 / measures['global']['scheduler_frequency'] / measures['global']['total_cpu'] / time_delta
     for cgroup, data in results:
         cpu_usage = data.get('cpuacct.stat.diff', {})
         table.append([
