@@ -3,7 +3,8 @@
 Iterate over all cgroup mountpoints and output global cgroup statistics
 '''
 
-import os
+import os, stat
+import pwd
 import time
 import tabulate
 import psutil
@@ -76,6 +77,15 @@ class Cgroup(object):
     def name(self):
         return self.path[len(self.base_path):] or '/'
 
+    @property
+    def owner(self):
+        path = os.path.join(self.base_path, self.path, 'tasks')
+        uid = os.stat(path).st_uid
+        try:
+            return pwd.getpwuid(uid).pw_name
+        except:
+            return uid
+
     def _coerce(self, value):
         try:
             return int(value)
@@ -138,6 +148,9 @@ def collect(measures):
     if 'cpuacct' in CGROUP_MOUNTPOINTS:
         # list all "folders" under mountpoint
         for cgroup in cgroups(CGROUP_MOUNTPOINTS['cpuacct']):
+            # Collect user
+            measures['data'][cgroup.name]['owner'] = cgroup.owner
+
             # Collect CPU stats
             measures['data'][cgroup.name]['cpuacct.stat'] = cgroup['cpuacct.stat']
 
@@ -154,13 +167,13 @@ def display(measures, sort_key):
     results = sorted(measures['data'].iteritems(), key=lambda cgroup: int(cgroup[1].get(sort_key, 0)))
 
     # Display statistics: Find the biggest user
-    table = [['cgroup', 'processes', 'current memory', 'peak memory', 'system cpu', 'user cpu']]
+    table = [['cgroup', 'owner', 'processes', 'current memory', 'peak memory', 'system cpu', 'user cpu']]
     cpu_to_percent = 100.0 / measures['global']['scheduler_frequency'] / measures['global']['total_cpu']
-    print cpu_to_percent
     for cgroup, data in results:
         cpu_usage = data.get('cpuacct.stat.diff', {})
         table.append([
             cgroup,
+            data.get('owner', 'nobody'),
             len(data['tasks']),
             "%s/%s" % (to_human(data.get('memory.usage_in_bytes', 0)), to_human(data.get('memory.limit_in_bytes', measures['global']['total_memory']))),
             to_human(data.get('memory.max_usage_in_bytes', 0)),
