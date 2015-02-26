@@ -199,13 +199,19 @@ def display(scr, measures, sort_key):
 
     # Display statistics
     curses.endwin()
-    scr.addstr(0, 0, '                memory                  cpu')
-    scr.addstr(1, 0, 'owner      proc current         peak    system user cgroup')
-    LINE_TMPL = "{owner:10s} {tasks:4d} {memory_cur:15s} {memory_peak:>7s} {cpu_syst: >5.1%} {cpu_user: >5.1%} {cgroup}"
+    height, width = scr.getmaxyx()
+    LINE_TMPL = "{:"+str(width)+"s}"
+    scr.addstr(0, 0, LINE_TMPL.format('                          MEMORY             CPU'), curses.color_pair(1))
+    scr.addstr(1, 0, LINE_TMPL.format('OWNER      PROC     CURRENT       PEAK  SYSTEM USER CGROUP'), curses.color_pair(1))
+    RES_TMPL = "{owner:10s} {tasks:4d} {memory_cur:15s} {memory_peak:>7s} {cpu_syst: >5.1%} {cpu_user: >5.1%} {cgroup}"
 
     lineno = 2
     for line in results:
-        scr.addstr(lineno, 0, LINE_TMPL.format(**line))
+        try:
+            line = RES_TMPL.format(**line)
+            scr.addstr(lineno, 0, LINE_TMPL.format(line))
+        except:
+            break
         lineno += 1
 
     stdscr.refresh()
@@ -223,10 +229,14 @@ if __name__ == "__main__":
 
     # Curse initialization
     stdscr = curses.initscr()
-    curses.noecho()    # do not echo text
-    curses.cbreak()    # do not wait for "enter"
-    curses.curs_set(0) # hide cursor
-    stdscr.keypad(1)   # parse keypad controll sequences
+    curses.start_color() # load colors
+    curses.noecho()      # do not echo text
+    curses.cbreak()      # do not wait for "enter"
+    curses.curs_set(0)   # hide cursor
+    stdscr.keypad(1)     # parse keypad controll sequences
+
+    # Curses colors
+    curses.init_pair(1, curses.COLOR_WHITE, curses.COLOR_GREEN)
 
     try:
         while True:
