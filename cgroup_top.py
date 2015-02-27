@@ -21,13 +21,13 @@ except ImportError:
 HIDE_EMPTY_CGROUP = True
 UPDATE_INTERVAL = 1.0 # seconds
 CGROUP_MOUNTPOINTS={}
-CGROUPS_SUBSYS=[]
 
 # TODO:
 # - react to keyborad/mouse events
 # - select display colums
 # - select refresh rate
 # - select sort column
+# - detect container technology
 # - visual CPU/memory usage
 # - block-io
 # - auto-color
@@ -43,32 +43,6 @@ def to_human(num, suffix='B'):
             return "{:.1f}{}{}".format(num, unit, suffix)
         num /= 1024.0
     return "{:5.1d}{}{}" % (num, 'Y', suffix)
-
-## Grab system facts
-
-# Get all cgroup subsystems avalaible on this system
-with open("/proc/cgroups") as f:
-    cgroups = f.read().strip()
-
-for cgroup in cgroups.split('\n'):
-    if cgroup[0] == '#': continue
-    CGROUPS_SUBSYS.append(cgroup.split()[0])
-
-# Match cgroup mountpoints to susbsytems. Always take the first matching
-with open("/proc/mounts") as f:
-    mounts = f.read().strip()
-
-for mount in mounts.split('\n'):
-    mount = mount.split(' ')
-
-    if mount[2] != "cgroup":
-        continue
-
-    for arg in mount[3].split(','):
-        if arg in CGROUPS_SUBSYS and arg not in CGROUP_MOUNTPOINTS:
-            CGROUP_MOUNTPOINTS[arg] = mount[1]
-
-## Tools
 
 class Cgroup(object):
     def __init__(self, path, base_path):
@@ -130,6 +104,30 @@ def cgroups(base_path):
         yield Cgroup(cgroup_path, base_path)
 
 ## Grab cgroup data
+
+def init():
+    # Get all cgroup subsystems avalaible on this system
+    with open("/proc/cgroups") as f:
+        cgroups = f.read().strip()
+
+    subsystems = []
+    for cgroup in cgroups.split('\n'):
+        if cgroup[0] == '#': continue
+        subsystems.append(cgroup.split()[0])
+
+    # Match cgroup mountpoints to susbsytems. Always take the first matching
+    with open("/proc/mounts") as f:
+        mounts = f.read().strip()
+
+    for mount in mounts.split('\n'):
+        mount = mount.split(' ')
+
+        if mount[2] != "cgroup":
+            continue
+
+        for arg in mount[3].split(','):
+            if arg in subsystems and arg not in CGROUP_MOUNTPOINTS:
+                CGROUP_MOUNTPOINTS[arg] = mount[1]
 
 def collect(measures):
     cur = defaultdict(dict)
@@ -225,6 +223,8 @@ def main():
             'scheduler_frequency': os.sysconf('SC_CLK_TCK'),
         }
     }
+
+    init()
 
     try:
         # Curse initialization
