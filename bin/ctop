@@ -1,0 +1,5 @@
+#!/usr/bin/env python
+
+import cgroup_top
+cgroup_top.main()
+

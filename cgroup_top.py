@@ -24,7 +24,8 @@ CGROUP_MOUNTPOINTS={}
 CGROUPS_SUBSYS=[]
 
 # TODO:
-# - curse list
+# - react to keyborad/mouse events
+# - select display colums
 # - select refresh rate
 # - select sort column
 # - visual CPU/memory usage
@@ -212,9 +213,9 @@ def display(scr, measures, sort_key):
             break
         lineno += 1
 
-    stdscr.refresh()
+    scr.refresh()
 
-if __name__ == "__main__":
+def main():
     # Initialization, global system data
     measures = {
         'data': defaultdict(dict),
@@ -250,4 +251,7 @@ if __name__ == "__main__":
         stdscr.keypad(0)
         curses.echo()
         curses.endwin()
+
+if __name__ == "__main__":
+    main()
 
