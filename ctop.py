@@ -23,11 +23,6 @@ UPDATE_INTERVAL = 1.0 # seconds
 CGROUP_MOUNTPOINTS={}
 CGROUPS_SUBSYS=[]
 
-CGROUPS = {
-    'prev': {},
-    'cur': {},
-}
-
 # TODO:
 # - curse list
 # - select refresh rate
@@ -136,39 +131,42 @@ def cgroups(base_path):
 ## Grab cgroup data
 
 def collect(measures):
+    cur = defaultdict(dict)
+    prev = measures['data']
 
     # Collect global data
     if 'cpuacct' in CGROUP_MOUNTPOINTS:
         # list all "folders" under mountpoint
         for cgroup in cgroups(CGROUP_MOUNTPOINTS['cpuacct']):
             # Collect tasks
-            measures['data'][cgroup.name]['tasks'] = cgroup['tasks']
+            cur[cgroup.name]['tasks'] = cgroup['tasks']
 
             # Collect user
-            measures['data'][cgroup.name]['owner'] = cgroup.owner
+            cur[cgroup.name]['owner'] = cgroup.owner
 
     # Collect memory statistics
     if 'memory' in CGROUP_MOUNTPOINTS:
         # list all "folders" under mountpoint
         for cgroup in cgroups(CGROUP_MOUNTPOINTS['memory']):
-            measures['data'][cgroup.name]['memory.usage_in_bytes'] = cgroup['memory.usage_in_bytes']
-            measures['data'][cgroup.name]['memory.max_usage_in_bytes'] = cgroup['memory.usage_in_bytes']
-            measures['data'][cgroup.name]['memory.limit_in_bytes'] = min(int(cgroup['memory.limit_in_bytes']), measures['global']['total_memory'])
+            cur[cgroup.name]['memory.usage_in_bytes'] = cgroup['memory.usage_in_bytes']
+            cur[cgroup.name]['memory.max_usage_in_bytes'] = cgroup['memory.usage_in_bytes']
+            cur[cgroup.name]['memory.limit_in_bytes'] = min(int(cgroup['memory.limit_in_bytes']), measures['global']['total_memory'])
 
     # Collect CPU statistics
     if 'cpuacct' in CGROUP_MOUNTPOINTS:
         # list all "folders" under mountpoint
         for cgroup in cgroups(CGROUP_MOUNTPOINTS['cpuacct']):
             # Collect CPU stats
-            prev = measures['data'][cgroup.name].get('cpuacct.stat', None)
-            measures['data'][cgroup.name]['cpuacct.stat'] = cgroup['cpuacct.stat']
+            cur[cgroup.name]['cpuacct.stat'] = cgroup['cpuacct.stat']
+            cur[cgroup.name]['cpuacct.stat.diff'] = {'user':0, 'system':0}
 
             # Collect CPU increase on run > 1
-            if prev is None:
-                measures['data'][cgroup.name]['cpuacct.stat.diff'] = {'user':0, 'system':0}
-            else:
-                for key, value in measures['data'][cgroup.name]['cpuacct.stat'].iteritems():
-                    measures['data'][cgroup.name]['cpuacct.stat.diff'][key] = value - prev[key]
+            if cgroup.name in prev:
+                for key, value in cur[cgroup.name]['cpuacct.stat'].iteritems():
+                    cur[cgroup.name]['cpuacct.stat.diff'][key] = value - prev[cgroup.name]['cpuacct.stat'][key]
+
+    # Apply
+    measures['data'] = cur
 
 def display(scr, measures, sort_key):
     # Time
