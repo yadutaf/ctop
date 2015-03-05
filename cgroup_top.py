@@ -213,6 +213,17 @@ def display(scr, measures, sort_key):
 
     scr.refresh()
 
+def event_listener(scr, timeout):
+    '''
+    Wait for curses events on screen ``scr`` at mot ``timeout`` ms
+    '''
+    scr.timeout(timeout)
+    c = scr.getch()
+    if c == -1:
+        return
+    if c == ord('q'):
+        raise KeyboardInterrupt()
+
 def main():
     # Initialization, global system data
     measures = {
@@ -243,7 +254,11 @@ def main():
         while True:
             collect(measures)
             display(stdscr, measures, 'cpu_total')
-            time.sleep(UPDATE_INTERVAL)
+            sleep_start = time.time()
+            while time.time() < sleep_start + UPDATE_INTERVAL:
+                to_sleep = sleep_start + UPDATE_INTERVAL - time.time()
+                event_listener(stdscr, int(to_sleep*1000))
+
     except KeyboardInterrupt:
         pass
     finally:
