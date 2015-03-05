@@ -13,7 +13,7 @@ import psutil
 from collections import defaultdict
 
 try:
-    import curses
+    import curses, _curses
 except ImportError:
     print >> sys.stderr, "Curse is not available on this system. Exiting."
     sys.exit(0)
@@ -216,33 +216,65 @@ def display(scr, measures, conf):
 
     scr.refresh()
 
+def set_sort_col(sort_by):
+    if CONFIGURATION['sort_by'] == sort_by:
+        CONFIGURATION['sort_asc'] = not CONFIGURATION['sort_asc']
+    else:
+        CONFIGURATION['sort_by'] = sort_by
+
 def on_keyboard(c):
     '''Handle keyborad shortcuts'''
     if c == ord('q'):
         raise KeyboardInterrupt()
+    return 1
 
 def on_mouse():
     '''Update selected line / sort'''
-    pass
+    _, x, y, z, bstate =  curses.getmouse()
+
+    # Left button click ?
+    if bstate & curses.BUTTON1_CLICKED:
+        # Is it title line ?
+        if y == 0:
+            # "Guess" sort colum based on X
+            # TODO: make it "discoverable"
+            RES_TMPL = "{owner:10s} {tasks:4d} {memory_cur:15s} {memory_peak:>7s} {cpu_syst: >5.1%} {cpu_user: >5.1%} {cgroup}"
+            if   x < 11: set_sort_col('owner')
+            elif x < 16: set_sort_col('tasks')
+            elif x < 32: set_sort_col('memory_cur')
+            elif x < 40: set_sort_col('memory_peak')
+            elif x < 47: set_sort_col('cpu_syst')
+            elif x < 54: set_sort_col('cpu_user')
+            else:        set_sort_col('cgroup')
+            return 2
+    return 1
 
 def on_resize():
     '''Redraw screen, do not refresh'''
-    pass
+    return 1
 
 def event_listener(scr, timeout):
     '''
     Wait for curses events on screen ``scr`` at mot ``timeout`` ms
+
+    return
+     - 1 OK
+     - 2 redraw
+     - 0 error
     '''
-    scr.timeout(timeout)
-    c = scr.getch()
-    if c == -1:
-        return
-    elif c == curses.KEY_MOUSE:
-        return on_mouse()
-    elif c == curses.KEY_RESIZE:
-        return on_resize()
-    elif c < 256:
-        return on_keyboard(c)
+    try:
+        scr.timeout(timeout)
+        c = scr.getch()
+        if c == -1:
+            return 1
+        elif c == curses.KEY_MOUSE:
+            return on_mouse()
+        elif c == curses.KEY_RESIZE:
+            return on_resize()
+        elif c < 256:
+            return on_keyboard(c)
+    except _curses.error:
+        return 0
 
 def main():
     # Initialization, global system data
@@ -266,6 +298,7 @@ def main():
         curses.cbreak()      # do not wait for "enter"
         curses.curs_set(0)   # hide cursor
         stdscr.keypad(1)     # parse keypad controll sequences
+        curses.mousemask(curses.ALL_MOUSE_EVENTS)
 
         # Curses colors
         curses.init_pair(1, -1, curses.COLOR_GREEN)
@@ -277,7 +310,9 @@ def main():
             sleep_start = time.time()
             while time.time() < sleep_start + UPDATE_INTERVAL:
                 to_sleep = sleep_start + UPDATE_INTERVAL - time.time()
-                event_listener(stdscr, int(to_sleep*1000))
+                ret = event_listener(stdscr, int(to_sleep*1000))
+                if ret == 2:
+                    display(stdscr, measures, CONFIGURATION)
 
     except KeyboardInterrupt:
         pass
