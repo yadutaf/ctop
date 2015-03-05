@@ -202,11 +202,10 @@ def display(scr, measures, conf):
     curses.endwin()
     height, width = scr.getmaxyx()
     LINE_TMPL = "{:"+str(width)+"s}"
-    scr.addstr(0, 0, LINE_TMPL.format('                          MEMORY             CPU'), curses.color_pair(1))
-    scr.addstr(1, 0, LINE_TMPL.format('OWNER      PROC     CURRENT       PEAK  SYSTEM USER CGROUP'), curses.color_pair(1))
+    scr.addstr(0, 0, LINE_TMPL.format('OWNER      PROC     CURRENT       PEAK  SYSTEM USER CGROUP'), curses.color_pair(1))
     RES_TMPL = "{owner:10s} {tasks:4d} {memory_cur:15s} {memory_peak:>7s} {cpu_syst: >5.1%} {cpu_user: >5.1%} {cgroup}"
 
-    lineno = 2
+    lineno = 1
     for line in results:
         try:
             line = RES_TMPL.format(**line)
