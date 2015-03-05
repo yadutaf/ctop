@@ -21,6 +21,10 @@ except ImportError:
 HIDE_EMPTY_CGROUP = True
 UPDATE_INTERVAL = 1.0 # seconds
 CGROUP_MOUNTPOINTS={}
+CONFIGURATION = {
+        'sort_by': 'cpu_total',
+        'sort_asc': False,
+}
 
 # TODO:
 # - react to keyborad/mouse events
@@ -167,7 +171,7 @@ def collect(measures):
     # Apply
     measures['data'] = cur
 
-def display(scr, measures, sort_key):
+def display(scr, measures, conf):
     # Time
     prev_time = measures['global'].get('time', -1)
     cur_time = time.time()
@@ -192,7 +196,7 @@ def display(scr, measures, sort_key):
         results.append(line)
 
     # Sort
-    results = sorted(results, key=lambda line: line.get(sort_key, 0), reverse=True)
+    results = sorted(results, key=lambda line: line.get(conf['sort_by'], 0), reverse=not conf['sort_asc'])
 
     # Display statistics
     curses.endwin()
@@ -213,6 +217,19 @@ def display(scr, measures, sort_key):
 
     scr.refresh()
 
+def on_keyboard(c):
+    '''Handle keyborad shortcuts'''
+    if c == ord('q'):
+        raise KeyboardInterrupt()
+
+def on_mouse():
+    '''Update selected line / sort'''
+    pass
+
+def on_resize():
+    '''Redraw screen, do not refresh'''
+    pass
+
 def event_listener(scr, timeout):
     '''
     Wait for curses events on screen ``scr`` at mot ``timeout`` ms
@@ -221,8 +238,12 @@ def event_listener(scr, timeout):
     c = scr.getch()
     if c == -1:
         return
-    if c == ord('q'):
-        raise KeyboardInterrupt()
+    elif c == curses.KEY_MOUSE:
+        return on_mouse()
+    elif c == curses.KEY_RESIZE:
+        return on_resize()
+    elif c < 256:
+        return on_keyboard(c)
 
 def main():
     # Initialization, global system data
@@ -253,7 +274,7 @@ def main():
         # Main loop
         while True:
             collect(measures)
-            display(stdscr, measures, 'cpu_total')
+            display(stdscr, measures, CONFIGURATION)
             sleep_start = time.time()
             while time.time() < sleep_start + UPDATE_INTERVAL:
                 to_sleep = sleep_start + UPDATE_INTERVAL - time.time()
