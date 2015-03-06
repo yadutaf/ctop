@@ -35,7 +35,6 @@ CONFIGURATION = {
 # - auto-color
 # - adapt name / commands to underlying container system
 # - hiereachical view
-# - fix sort human column
 # - add cpu time + human
 # - persist preferences
 
@@ -187,13 +186,17 @@ def built_statistics(measures, conf):
         line = {
             'owner': data.get('owner', 'nobody'),
             'tasks': len(data['tasks']),
-            'memory_cur': "{: >7}/{: <7}".format(to_human(data.get('memory.usage_in_bytes', 0)), to_human(data.get('memory.limit_in_bytes', measures['global']['total_memory']))),
-            'memory_peak': to_human(data.get('memory.max_usage_in_bytes', 0)),
+            'memory_cur_bytes': data.get('memory.usage_in_bytes', 0),
+            'memory_limit_bytes': data.get('memory.limit_in_bytes', measures['global']['total_memory']),
+            'memory_peak_bytes': data.get('memory.max_usage_in_bytes', 0),
             'cpu_syst': cpu_usage.get('system', 0) / cpu_to_percent,
             'cpu_user': cpu_usage.get('user', 0) / cpu_to_percent,
             'cgroup': cgroup,
         }
-        line['cpu_total'] = line['cpu_syst'] + line['cpu_user']
+        line['cpu_total'] = line['cpu_syst'] + line['cpu_user'],
+        line['memory_cur_percent'] = line['memory_cur_bytes'] / line['memory_limit_bytes']
+        line['memory_cur_str'] = "{: >7}/{: <7}".format(to_human(line['memory_cur_bytes']), to_human(line['memory_limit_bytes']))
+        line['memory_peak_str'] = to_human(line['memory_peak_bytes'])
         results.append(line)
 
     return results
@@ -207,7 +210,7 @@ def display(scr, results, conf):
     height, width = scr.getmaxyx()
     LINE_TMPL = "{:"+str(width)+"s}"
     scr.addstr(0, 0, LINE_TMPL.format('OWNER      PROC     CURRENT       PEAK  SYSTEM USER CGROUP'), curses.color_pair(1))
-    RES_TMPL = "{owner:10s} {tasks:4d} {memory_cur:15s} {memory_peak:>7s} {cpu_syst: >5.1%} {cpu_user: >5.1%} {cgroup}"
+    RES_TMPL = "{owner:10s} {tasks:4d} {memory_cur_str:15s} {memory_peak_str:>7s} {cpu_syst: >5.1%} {cpu_user: >5.1%} {cgroup}"
 
     lineno = 1
     for line in results:
@@ -245,8 +248,8 @@ def on_mouse():
             RES_TMPL = "{owner:10s} {tasks:4d} {memory_cur:15s} {memory_peak:>7s} {cpu_syst: >5.1%} {cpu_user: >5.1%} {cgroup}"
             if   x < 11: set_sort_col('owner')
             elif x < 16: set_sort_col('tasks')
-            elif x < 32: set_sort_col('memory_cur')
-            elif x < 40: set_sort_col('memory_peak')
+            elif x < 32: set_sort_col('memory_cur_bytes')
+            elif x < 40: set_sort_col('memory_peak_bytes')
             elif x < 54: set_sort_col('cpu_total')
             else:        set_sort_col('cgroup')
             return 2
