@@ -36,6 +36,8 @@ CONFIGURATION = {
 # - adapt name / commands to underlying container system
 # - hiereachical view
 # - fix sort human column
+# - add cpu time + human
+# - persist preferences
 
 ## Utils
 
@@ -245,8 +247,7 @@ def on_mouse():
             elif x < 16: set_sort_col('tasks')
             elif x < 32: set_sort_col('memory_cur')
             elif x < 40: set_sort_col('memory_peak')
-            elif x < 47: set_sort_col('cpu_syst')
-            elif x < 54: set_sort_col('cpu_user')
+            elif x < 54: set_sort_col('cpu_total')
             else:        set_sort_col('cgroup')
             return 2
     return 1
