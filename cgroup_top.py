@@ -27,16 +27,15 @@ CONFIGURATION = {
 }
 
 # TODO:
-# - react to keyborad/mouse events
 # - select display colums
 # - select refresh rate
-# - select sort column
 # - detect container technology
 # - visual CPU/memory usage
 # - block-io
 # - auto-color
 # - adapt name / commands to underlying container system
 # - hiereachical view
+# - fix sort human column
 
 ## Utils
 
@@ -171,7 +170,7 @@ def collect(measures):
     # Apply
     measures['data'] = cur
 
-def display(scr, measures, conf):
+def built_statistics(measures, conf):
     # Time
     prev_time = measures['global'].get('time', -1)
     cur_time = time.time()
@@ -195,6 +194,9 @@ def display(scr, measures, conf):
         line['cpu_total'] = line['cpu_syst'] + line['cpu_user']
         results.append(line)
 
+    return results
+
+def display(scr, results, conf):
     # Sort
     results = sorted(results, key=lambda line: line.get(conf['sort_by'], 0), reverse=not conf['sort_asc'])
 
@@ -306,13 +308,14 @@ def main():
         # Main loop
         while True:
             collect(measures)
-            display(stdscr, measures, CONFIGURATION)
+            results = built_statistics(measures, CONFIGURATION)
+            display(stdscr, results, CONFIGURATION)
             sleep_start = time.time()
             while time.time() < sleep_start + UPDATE_INTERVAL:
                 to_sleep = sleep_start + UPDATE_INTERVAL - time.time()
                 ret = event_listener(stdscr, int(to_sleep*1000))
                 if ret == 2:
-                    display(stdscr, measures, CONFIGURATION)
+                    display(stdscr, results, CONFIGURATION)
 
     except KeyboardInterrupt:
         pass
