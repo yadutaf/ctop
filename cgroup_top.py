@@ -11,6 +11,7 @@ import time
 import psutil
 
 from collections import defaultdict
+from collections import namedtuple
 
 try:
     import curses, _curses
@@ -25,6 +26,19 @@ CONFIGURATION = {
         'sort_by': 'cpu_total',
         'sort_asc': False,
 }
+
+Column = namedtuple('Column', ['title', 'width', 'align', 'col_fmt', 'col_sort'])
+
+COLUMNS = [
+    Column("OWNER",   10, '<', '{owner:%ss}',            'owner'),
+    Column("PROC",     4, '>', '{tasks:%sd}',            'tasks'),
+    Column("CURRENT", 16, '^', '{memory_cur_str:%ss}',   'memory_cur_bytes'),
+    Column("PEAK",     8, '^', '{memory_peak_str:>%ss}', 'memory_peak_bytes'),
+    Column("SYST",     5, '^', '{cpu_syst: >%s.1%%}',    'cpu_total'),
+    Column("USER",     5, '^', '{cpu_user: >%s.1%%}',    'cpu_total'),
+    Column("TIME+",   14, '^', '{cpu_total_str: >%ss}',  'cpu_total_seconds'),
+    Column("CGROUP",  '', '<', '{cgroup:%ss}',           'cgroup'),
+]
 
 # TODO:
 # - select display colums
@@ -218,6 +232,7 @@ def built_statistics(measures, conf):
 
     return results
 
+
 def display(scr, results, conf):
     # Sort
     results = sorted(results, key=lambda line: line.get(conf['sort_by'], 0), reverse=not conf['sort_asc'])
@@ -226,13 +241,21 @@ def display(scr, results, conf):
     curses.endwin()
     height, width = scr.getmaxyx()
     LINE_TMPL = "{:"+str(width)+"s}"
-    scr.addstr(0, 0, LINE_TMPL.format('OWNER      PROC      CURRENT        PEAK  SYSTEM USER       TIME+    CGROUP'), curses.color_pair(1))
-    RES_TMPL = "{owner:10s} {tasks:4d} {memory_cur_str:16s} {memory_peak_str:>8s} {cpu_syst: >5.1%} {cpu_user: >5.1%} {cpu_total_str: >14s} {cgroup}"
+
+    title = []
+    line_tpl = []
+    for col in COLUMNS:
+        title_fmt = '{:%s%ss}' % (col.align, col.width)
+        title.append(title_fmt.format(col.title))
+        line_tpl.append(col.col_fmt % (col.width))
+    line_tpl = ' '.join(line_tpl)
+
+    scr.addstr(0, 0, LINE_TMPL.format(' '.join(title)), curses.color_pair(1))
 
     lineno = 1
     for line in results:
         try:
-            line = RES_TMPL.format(**line)
+            line = line_tpl.format(**line)
             scr.addstr(lineno, 0, LINE_TMPL.format(line))
         except:
             break
@@ -260,17 +283,17 @@ def on_mouse():
     if bstate & curses.BUTTON1_CLICKED:
         # Is it title line ?
         if y == 0:
-            # "Guess" sort colum based on X
-            # TODO: make it "discoverable"
-            RES_TMPL = "{owner:10s} {tasks:4d} {memory_cur:15s} {memory_peak:>7s} {cpu_syst: >5.1%} {cpu_user: >5.1%} {cgroup}"
-            if   x < 11: set_sort_col('owner')
-            elif x < 16: set_sort_col('tasks')
-            elif x < 33: set_sort_col('memory_cur_bytes')
-            elif x < 42: set_sort_col('memory_peak_bytes')
-            elif x < 53: set_sort_col('cpu_total')
-            elif x < 70: set_sort_col('cpu_total_seconds')
-            else:        set_sort_col('cgroup')
-            return 2
+            # Determine sort column based on offset / col width
+            x_max = 0
+            for col in COLUMNS:
+                if not col.width:
+                    set_sort_col(col.col_sort)
+                elif x < x_max+col.width:
+                    set_sort_col(col.col_sort)
+                else:
+                    x_max += col.width + 1
+                    continue
+                return 2
     return 1
 
 def on_resize():
