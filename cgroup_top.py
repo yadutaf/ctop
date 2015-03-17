@@ -37,6 +37,7 @@ CONFIGURATION = {
 # - hiereachical view
 # - persist preferences
 # - dynamic column width
+# - only show residual cpu time / memory (without children cgroups) ?
 
 ## Utils
 
@@ -225,8 +226,8 @@ def display(scr, results, conf):
     curses.endwin()
     height, width = scr.getmaxyx()
     LINE_TMPL = "{:"+str(width)+"s}"
-    scr.addstr(0, 0, LINE_TMPL.format('OWNER      PROC     CURRENT       PEAK  SYSTEM USER       TIME+    CGROUP'), curses.color_pair(1))
-    RES_TMPL = "{owner:10s} {tasks:4d} {memory_cur_str:15s} {memory_peak_str:>7s} {cpu_syst: >5.1%} {cpu_user: >5.1%} {cpu_total_str: >14s} {cgroup}"
+    scr.addstr(0, 0, LINE_TMPL.format('OWNER      PROC      CURRENT        PEAK  SYSTEM USER       TIME+    CGROUP'), curses.color_pair(1))
+    RES_TMPL = "{owner:10s} {tasks:4d} {memory_cur_str:16s} {memory_peak_str:>8s} {cpu_syst: >5.1%} {cpu_user: >5.1%} {cpu_total_str: >14s} {cgroup}"
 
     lineno = 1
     for line in results:
@@ -264,10 +265,10 @@ def on_mouse():
             RES_TMPL = "{owner:10s} {tasks:4d} {memory_cur:15s} {memory_peak:>7s} {cpu_syst: >5.1%} {cpu_user: >5.1%} {cgroup}"
             if   x < 11: set_sort_col('owner')
             elif x < 16: set_sort_col('tasks')
-            elif x < 32: set_sort_col('memory_cur_bytes')
-            elif x < 40: set_sort_col('memory_peak_bytes')
-            elif x < 51: set_sort_col('cpu_total')
-            elif x < 68: set_sort_col('cpu_total_seconds')
+            elif x < 33: set_sort_col('memory_cur_bytes')
+            elif x < 42: set_sort_col('memory_peak_bytes')
+            elif x < 53: set_sort_col('cpu_total')
+            elif x < 70: set_sort_col('cpu_total_seconds')
             else:        set_sort_col('cgroup')
             return 2
     return 1
