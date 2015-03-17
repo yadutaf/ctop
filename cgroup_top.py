@@ -348,7 +348,7 @@ def main():
         curses.mousemask(curses.ALL_MOUSE_EVENTS)
 
         # Curses colors
-        curses.init_pair(1, -1, curses.COLOR_GREEN)
+        curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_GREEN)
 
         # Main loop
         while True:
