@@ -242,15 +242,22 @@ def display(scr, results, conf):
     height, width = scr.getmaxyx()
     LINE_TMPL = "{:"+str(width)+"s}"
 
-    title = []
+    # Title line && templates
+    x = 0
     line_tpl = []
+    scr.addstr(0, 0, ' '*width, curses.color_pair(1))
+ 
     for col in COLUMNS:
+        # Build templates
         title_fmt = '{:%s%ss}' % (col.align, col.width)
-        title.append(title_fmt.format(col.title))
         line_tpl.append(col.col_fmt % (col.width))
-    line_tpl = ' '.join(line_tpl)
 
-    scr.addstr(0, 0, LINE_TMPL.format(' '.join(title)), curses.color_pair(1))
+        # Build title line
+        color = 2 if col.col_sort == conf['sort_by'] else 1
+        scr.addstr(0, x, title_fmt.format(col.title)+' ', curses.color_pair(color))
+        if col.width:
+            x += col.width + 1
+    line_tpl = ' '.join(line_tpl)
 
     lineno = 1
     for line in results:
@@ -348,7 +355,8 @@ def main():
         curses.mousemask(curses.ALL_MOUSE_EVENTS)
 
         # Curses colors
-        curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_GREEN)
+        curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_GREEN) # header
+        curses.init_pair(2, curses.COLOR_BLACK, curses.COLOR_CYAN)  # focused header / line
 
         # Main loop
         while True:
