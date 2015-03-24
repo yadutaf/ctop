@@ -32,10 +32,11 @@ Column = namedtuple('Column', ['title', 'width', 'align', 'col_fmt', 'col_sort']
 COLUMNS = [
     Column("OWNER",   10, '<', '{owner:%ss}',            'owner'),
     Column("PROC",     4, '>', '{tasks:%sd}',            'tasks'),
-    Column("CURRENT", 16, '^', '{memory_cur_str:%ss}',   'memory_cur_bytes'),
+    Column("CURRENT", 17, '^', '{memory_cur_str:%ss}',   'memory_cur_bytes'),
     Column("PEAK",     8, '^', '{memory_peak_str:>%ss}', 'memory_peak_bytes'),
     Column("SYST",     5, '^', '{cpu_syst: >%s.1%%}',    'cpu_total'),
     Column("USER",     5, '^', '{cpu_user: >%s.1%%}',    'cpu_total'),
+    Column("BLKIO",   10, '^', '{blkio_bw: >%s}',        'blkio_bw_bytes'),
     Column("TIME+",   14, '^', '{cpu_total_str: >%ss}',  'cpu_total_seconds'),
     Column("CGROUP",  '', '<', '{cgroup:%ss}',           'cgroup'),
 ]
@@ -45,7 +46,6 @@ COLUMNS = [
 # - select refresh rate
 # - detect container technology
 # - visual CPU/memory usage
-# - block-io
 # - auto-color
 # - adapt name / commands to underlying container system
 # - hiereachical view
@@ -118,7 +118,7 @@ class Cgroup(object):
             content = content.split('\n')
 
             if ' ' in content[0]:
-                content = dict((l.split(' ') for l in content))
+                content = dict((l.split(' ', 1) for l in content))
                 for k, v in content.iteritems():
                     content[k] = self._coerce(v)
             else:
@@ -197,6 +197,20 @@ def collect(measures):
                 for key, value in cur[cgroup.name]['cpuacct.stat'].iteritems():
                     cur[cgroup.name]['cpuacct.stat.diff'][key] = value - prev[cgroup.name]['cpuacct.stat'][key]
 
+    # Collect BlockIO statistics
+    if 'blkio' in CGROUP_MOUNTPOINTS:
+        # list all "folders" under mountpoint
+        for cgroup in cgroups(CGROUP_MOUNTPOINTS['blkio']):
+            # Collect BlockIO stats
+            cur[cgroup.name]['blkio.throttle.io_service_bytes'] = cgroup['blkio.throttle.io_service_bytes']
+            cur[cgroup.name]['blkio.throttle.io_service_bytes.diff'] = {'total':0}
+
+            # Collect BlockIO increase on run > 1
+            if cgroup.name in prev:
+                cur_val = cur[cgroup.name]['blkio.throttle.io_service_bytes']['Total']
+                prev_val = prev[cgroup.name]['blkio.throttle.io_service_bytes']['Total']
+                cur[cgroup.name]['blkio.throttle.io_service_bytes.diff']['total'] = cur_val - prev_val
+
     # Apply
     measures['data'] = cur
 
@@ -221,6 +235,7 @@ def built_statistics(measures, conf):
             'cpu_total_seconds': data.get('cpuacct.stat', {}).get('system', 0) + data.get('cpuacct.stat', {}).get('user', 0),
             'cpu_syst': cpu_usage.get('system', 0) / cpu_to_percent,
             'cpu_user': cpu_usage.get('user', 0) / cpu_to_percent,
+            'blkio_bw_bytes': data.get('blkio.throttle.io_service_bytes.diff', {}).get('total', 0),
             'cgroup': cgroup,
         }
         line['cpu_total'] = line['cpu_syst'] + line['cpu_user'],
@@ -228,6 +243,7 @@ def built_statistics(measures, conf):
         line['memory_cur_percent'] = line['memory_cur_bytes'] / line['memory_limit_bytes']
         line['memory_cur_str'] = "{: >7}/{: <7}".format(to_human(line['memory_cur_bytes']), to_human(line['memory_limit_bytes']))
         line['memory_peak_str'] = to_human(line['memory_peak_bytes'])
+        line['blkio_bw'] = to_human(line['blkio_bw_bytes'], 'B/s')
         results.append(line)
 
     return results
