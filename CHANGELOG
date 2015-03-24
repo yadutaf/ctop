@@ -1,0 +1,18 @@
+v0.2.0
+======
+
+ - add blkio bw column
+ - add time column
+ - enhancement: header contrast
+ - enhancement: remove 1st header line
+ - enhancement: header contrast
+ - add sort toggle on click
+ - highlight sort column
+ - exit with 'q'
+
+v0.1.0
+======
+
+Initial release
+
+
