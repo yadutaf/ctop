@@ -26,6 +26,7 @@ CGROUP_MOUNTPOINTS={}
 CONFIGURATION = {
         'sort_by': 'cpu_total',
         'sort_asc': False,
+        'tree': False,
 }
 
 Column = namedtuple('Column', ['title', 'width', 'align', 'col_fmt', 'col_sort'])
@@ -303,7 +304,9 @@ def prepare_tree(results):
 def display(scr, results, conf):
     # Sort
     results = sorted(results, key=lambda line: line.get(conf['sort_by'], 0), reverse=not conf['sort_asc'])
-    results = prepare_tree(results)
+
+    if CONFIGURATION['tree']:
+        results = prepare_tree(results)
 
     # Display statistics
     curses.endwin()
@@ -332,7 +335,7 @@ def display(scr, results, conf):
             for col in COLUMNS:
                 cell_tpl = col.col_fmt % (col.width)
 
-                if col.title == 'CGROUP':
+                if col.title == 'CGROUP' and CONFIGURATION['tree']:
                     scr.addch(' ')
                     for c in line.get('_tree', []):
                         scr.addch(c)
@@ -359,6 +362,9 @@ def on_keyboard(c):
     '''Handle keyborad shortcuts'''
     if c == ord('q'):
         raise KeyboardInterrupt()
+    elif c == 269:
+        CONFIGURATION['tree'] = not CONFIGURATION['tree']
+        return 2
     return 1
 
 def on_mouse():
@@ -404,7 +410,7 @@ def event_listener(scr, timeout):
             return on_mouse()
         elif c == curses.KEY_RESIZE:
             return on_resize()
-        elif c < 256:
+        else:
             return on_keyboard(c)
     except _curses.error:
         return 0
