@@ -27,6 +27,7 @@ CONFIGURATION = {
         'sort_by': 'cpu_total',
         'sort_asc': False,
         'tree': False,
+        'pause_refresh': False,
 }
 
 Column = namedtuple('Column', ['title', 'width', 'align', 'col_fmt', 'col_data', 'col_sort'])
@@ -50,13 +51,9 @@ COLUMNS = [
 # - visual CPU/memory usage
 # - auto-color
 # - adapt name / commands to underlying container system
-# - hiereachical view
 # - persist preferences
 # - dynamic column width
-# - only show residual cpu time / memory (without children cgroups) ?
 # - handle small screens
-# - better arb drawing
-# - fix crash when screen is smaaaaal
 
 ## Utils
 
@@ -362,7 +359,9 @@ def on_keyboard(c):
     '''Handle keyborad shortcuts'''
     if c == ord('q'):
         raise KeyboardInterrupt()
-    elif c == 269:
+    elif c == ord('p'):
+        CONFIGURATION['pause_refresh'] = not CONFIGURATION['pause_refresh']
+    elif c == 269: # F5
         CONFIGURATION['tree'] = not CONFIGURATION['tree']
         return 2
     return 1
@@ -451,9 +450,12 @@ def main():
             results = built_statistics(measures, CONFIGURATION)
             display(stdscr, results, CONFIGURATION)
             sleep_start = time.time()
-            while time.time() < sleep_start + UPDATE_INTERVAL:
-                to_sleep = sleep_start + UPDATE_INTERVAL - time.time()
-                ret = event_listener(stdscr, int(to_sleep*1000))
+            while CONFIGURATION['pause_refresh'] or time.time() < sleep_start + UPDATE_INTERVAL:
+                if CONFIGURATION['pause_refresh']:
+                    to_sleep = -1
+                else:
+                    to_sleep = int((sleep_start + UPDATE_INTERVAL - time.time())*1000)
+                ret = event_listener(stdscr, to_sleep)
                 if ret == 2:
                     display(stdscr, results, CONFIGURATION)
 
