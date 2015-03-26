@@ -4,12 +4,13 @@
 Monitor local cgroups as used by Docker, LXC, SystemD, ...
 
 Usage:
-  ctop [--tree] [--refresh=<seconds>]
+  ctop [--tree] [--refresh=<seconds>] [--columns=<columns>]
   ctop (-h | --help)
 
 Options:
   --tree                Show tree view by default.
   --refresh=<seconds>   Refresh display every <seconds> [default: 1].
+  --columns=<columns>   List of optional columns to display. Always includes 'name'. [default: owner,processes,memory,cpu-syst,cpu-user,blkio,cpu-time].
   -h --help             Show this screen.
 
 '''
@@ -40,23 +41,25 @@ CONFIGURATION = {
         'tree': False,
         'pause_refresh': False,
         'refresh_interval': 1.0,
+        'columns': [],
 }
 
 Column = namedtuple('Column', ['title', 'width', 'align', 'col_fmt', 'col_data', 'col_sort'])
 
-COLUMNS = [
-    Column("OWNER",   10, '<', '{:%ss}',      'owner',          'owner'),
-    Column("PROC",     4, '>', '{:%sd}',      'tasks',           'tasks'),
-    Column("MEMORY",  17, '^', '{:%ss}',      'memory_cur_str',  'memory_cur_bytes'),
-    Column("SYST",     5, '^', '{: >%s.1%%}', 'cpu_syst',        'cpu_total'),
-    Column("USER",     5, '^', '{: >%s.1%%}', 'cpu_user',        'cpu_total'),
-    Column("BLKIO",   10, '^', '{: >%s}',     'blkio_bw',        'blkio_bw_bytes'),
-    Column("TIME+",   14, '^', '{: >%ss}',    'cpu_total_str',   'cpu_total_seconds'),
-    Column("CGROUP",  '', '<', '{:%ss}',      'cgroup',          'cgroup'),
-]
+COLUMNS = []
+COLUMNS_MANDATORY = ['name']
+COLUMNS_AVAILABLE = {
+    'owner':     Column("OWNER",   10, '<', '{:%ss}',      'owner',           'owner'),
+    'processes': Column("PROC",     4, '>', '{:%sd}',      'tasks',           'tasks'),
+    'memory':    Column("MEMORY",  17, '^', '{:%ss}',      'memory_cur_str',  'memory_cur_bytes'),
+    'cpu-sys':   Column("SYST",     5, '^', '{: >%s.1%%}', 'cpu_syst',        'cpu_total'),
+    'cpu-user':  Column("USER",     5, '^', '{: >%s.1%%}', 'cpu_user',        'cpu_total'),
+    'blkio':     Column("BLKIO",   10, '^', '{: >%s}',     'blkio_bw',        'blkio_bw_bytes'),
+    'cpu-time':  Column("TIME+",   14, '^', '{: >%ss}',    'cpu_total_str',   'cpu_total_seconds'),
+    'name':      Column("CGROUP",  '', '<', '{:%ss}',      'cgroup',          'cgroup'),
+}
 
 # TODO:
-# - select display colums
 # - detect container technology
 # - visual CPU/memory usage
 # - auto-color
@@ -64,6 +67,7 @@ COLUMNS = [
 # - persist preferences
 # - dynamic column width
 # - handle small screens
+# - test/fix python 2.6
 
 ## Utils
 
@@ -438,12 +442,29 @@ def event_listener(scr, timeout):
     except _curses.error:
         return 0
 
+def rebuild_columns():
+    del COLUMNS[:]
+    for col in CONFIGURATION['columns']+COLUMNS_MANDATORY:
+        COLUMNS.append(COLUMNS_AVAILABLE[col])
+
 def main():
     # Parse arguments
     arguments = docopt(__doc__)
 
     CONFIGURATION['tree'] = arguments['--tree']
     CONFIGURATION['refresh_interval'] = float(arguments['--refresh'])
+    CONFIGURATION['columns'] = []
+
+    for col in arguments['--columns'].split(','):
+        col = col.strip()
+        if col in COLUMNS_MANDATORY:
+            continue
+        if not col in COLUMNS_AVAILABLE:
+            print >>sys.stderr, "Invalid column name", col
+            print __doc__
+            sys.exit(1)
+        CONFIGURATION['columns'].append(col)
+    rebuild_columns()
 
     # Initialization, global system data
     measures = {
