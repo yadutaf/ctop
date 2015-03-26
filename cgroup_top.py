@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 '''
 Iterate over all cgroup mountpoints and output global cgroup statistics
 '''
@@ -52,6 +53,10 @@ COLUMNS = [
 # - persist preferences
 # - dynamic column width
 # - only show residual cpu time / memory (without children cgroups) ?
+# - handle small screens
+# - remove \n test in cgroup reader
+# - better arb drawing
+# - fix crash when screen is smaaaaal
 
 ## Utils
 
@@ -248,15 +253,62 @@ def built_statistics(measures, conf):
 
     return results
 
+def render_tree(results, tree, level=0, level_done=0, node='/'):
+    level += 1
+
+    # Exit condition
+    if node not in tree:
+        return
+
+    # Iteration
+    for i, line in enumerate(tree[node]):
+        cgroup = line['cgroup']
+
+        # Build name
+        _tree  = [' ', ' ', ' ']*level_done
+        _tree += [curses.ACS_VLINE, ' ', ' ']*max(level-level_done-1, 0)
+        if i == len(tree[node]) - 1:
+            _tree.extend([curses.ACS_LLCORNER, curses.ACS_HLINE, ' '])
+            level_done += 1
+        else:
+            _tree.extend([curses.ACS_LTEE, curses.ACS_HLINE, ' '])
+
+        # Commit, recurse
+        line['cgroup'] = os.path.basename(cgroup)
+        line['_tree'] = _tree
+        results.append(line)
+        render_tree(results, tree, level, level_done, cgroup)
+
+def prepare_tree(results):
+    # Build tree
+    tree = {}
+    rendered = []
+    for line in results:
+        cgroup = line['cgroup']
+        parent = os.path.dirname(cgroup)
+
+        # Root cgroup ?
+        if parent == cgroup:
+            rendered.append(line)
+            continue
+
+        # Insert in hierarchie as needed
+        if parent not in tree:
+            tree[parent] = []
+        tree[parent].append(line)
+
+    # Render tree, starting from root
+    render_tree(rendered, tree)
+    return rendered
 
 def display(scr, results, conf):
     # Sort
     results = sorted(results, key=lambda line: line.get(conf['sort_by'], 0), reverse=not conf['sort_asc'])
+    results = prepare_tree(results)
 
     # Display statistics
     curses.endwin()
     height, width = scr.getmaxyx()
-    LINE_TMPL = "{:"+str(width)+"s}"
 
     # Title line && templates
     x = 0
@@ -273,14 +325,26 @@ def display(scr, results, conf):
         scr.addstr(0, x, title_fmt.format(col.title)+' ', curses.color_pair(color))
         if col.width:
             x += col.width + 1
-    line_tpl = ' '.join(line_tpl)
 
     lineno = 1
     for line in results:
+        y = 0
         try:
-            line = line_tpl.format(**line)
-            scr.addstr(lineno, 0, LINE_TMPL.format(line))
+            for col in COLUMNS:
+                cell_tpl = col.col_fmt % (col.width)
+
+                if col.title == 'CGROUP':
+                    scr.addch(' ')
+                    for c in line.get('_tree', []):
+                        scr.addch(c)
+                        y+=1
+
+                scr.addstr(lineno, y, cell_tpl.format(**line))
+
+                if col.width:
+                    y += col.width + 1
         except:
+            raise
             break
         lineno += 1
 
