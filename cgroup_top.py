@@ -4,14 +4,15 @@
 Monitor local cgroups as used by Docker, LXC, SystemD, ...
 
 Usage:
-  ctop [--tree] [--refresh=<seconds>] [--columns=<columns>]
+  ctop [--tree] [--refresh=<seconds>] [--columns=<columns>] [--sort-col=<sort-col>]
   ctop (-h | --help)
 
 Options:
-  --tree                Show tree view by default.
-  --refresh=<seconds>   Refresh display every <seconds> [default: 1].
-  --columns=<columns>   List of optional columns to display. Always includes 'name'. [default: owner,processes,memory,cpu-syst,cpu-user,blkio,cpu-time].
-  -h --help             Show this screen.
+  --tree                 Show tree view by default.
+  --refresh=<seconds>    Refresh display every <seconds> [default: 1].
+  --columns=<columns>    List of optional columns to display. Always includes 'name'. [default: owner,processes,memory,cpu-sys,cpu-user,blkio,cpu-time].
+  --sort-col=<sort-col>  Select column to sort by initially. Can be changed dynamically. [default: cpu-user]
+  -h --help              Show this screen.
 
 '''
 
@@ -465,6 +466,12 @@ def main():
             sys.exit(1)
         CONFIGURATION['columns'].append(col)
     rebuild_columns()
+
+    if arguments['--sort-col'] not in COLUMNS_AVAILABLE:
+        print >>sys.stderr, "Invalid sort column name", arguments['--sort-col']
+        print __doc__
+        sys.exit(1)
+    CONFIGURATION['sort_by'] = COLUMNS_AVAILABLE[arguments['--sort-col']].col_sort
 
     # Initialization, global system data
     measures = {
