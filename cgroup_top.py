@@ -54,7 +54,6 @@ COLUMNS = [
 # - dynamic column width
 # - only show residual cpu time / memory (without children cgroups) ?
 # - handle small screens
-# - remove \n test in cgroup reader
 # - better arb drawing
 # - fix crash when screen is smaaaaal
 
@@ -119,7 +118,7 @@ class Cgroup(object):
         with open(path) as f:
             content = f.read().strip()
 
-        if name == 'tasks' or '\n' in content:
+        if name == 'tasks' or '\n' in content or ' ' in content:
             content = content.split('\n')
 
             if ' ' in content[0]:
