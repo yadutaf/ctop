@@ -324,6 +324,7 @@ def display(scr, results, conf):
         if col.width:
             x += col.width + 1
 
+    # Content
     lineno = 1
     for line in results:
         y = 0
@@ -347,6 +348,21 @@ def display(scr, results, conf):
             break
         lineno += 1
 
+    # status line
+    try:
+        color = curses.color_pair(2)
+        scr.addstr(height-1, 0, ' '*(width-1), color)
+        scr.addstr(height-1, 0, " CTOP ", color)
+        scr.addch(curses.ACS_VLINE, color)
+        scr.addstr(" [P]ause: "+('On ' if CONFIGURATION['pause_refresh'] else 'Off '), color)
+        scr.addch(curses.ACS_VLINE, color)
+        scr.addstr(" [F5] Toggle %s view "%('list' if CONFIGURATION['tree'] else 'tree'), color)
+        scr.addch(curses.ACS_VLINE, color)
+        scr.addstr(" [Q]uit", color)
+    except:
+        # be resize proof
+        pass
+
     scr.refresh()
 
 def set_sort_col(sort_by):
@@ -361,6 +377,7 @@ def on_keyboard(c):
         raise KeyboardInterrupt()
     elif c == ord('p'):
         CONFIGURATION['pause_refresh'] = not CONFIGURATION['pause_refresh']
+        return 2
     elif c == 269: # F5
         CONFIGURATION['tree'] = not CONFIGURATION['tree']
         return 2
