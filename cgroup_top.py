@@ -333,7 +333,7 @@ def display(scr, results, conf):
         y = 0
         try:
             for col in COLUMNS:
-                cell_tpl = col.col_fmt % (col.width)
+                cell_tpl = col.col_fmt % (col.width if col.width else width - y)
 
                 if col.title == 'CGROUP' and CONFIGURATION['tree']:
                     scr.addch(' ')
