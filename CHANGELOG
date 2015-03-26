@@ -1,3 +1,19 @@
+CHANGELOG
+#########
+
+v0.3.0
+======
+
+ - add command line
+ - add choose columns, sort columns from command line
+ - add choose refresh rate from command line
+ - add tree view + toggle from cmdline + toggle from keyboard
+ - add pause mode to ease text selections
+ - add status bar
+ - add CHANGELOG
+ - fix parse of 1-line dict-like cgroup pseudo-files
+ - drop peak memory usage column, meaningless in practise
+
 v0.2.0
 ======
 
