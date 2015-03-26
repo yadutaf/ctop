@@ -29,18 +29,18 @@ CONFIGURATION = {
         'tree': False,
 }
 
-Column = namedtuple('Column', ['title', 'width', 'align', 'col_fmt', 'col_sort'])
+Column = namedtuple('Column', ['title', 'width', 'align', 'col_fmt', 'col_data', 'col_sort'])
 
 COLUMNS = [
-    Column("OWNER",   10, '<', '{owner:%ss}',            'owner'),
-    Column("PROC",     4, '>', '{tasks:%sd}',            'tasks'),
-    Column("CURRENT", 17, '^', '{memory_cur_str:%ss}',   'memory_cur_bytes'),
-    Column("PEAK",     8, '^', '{memory_peak_str:>%ss}', 'memory_peak_bytes'),
-    Column("SYST",     5, '^', '{cpu_syst: >%s.1%%}',    'cpu_total'),
-    Column("USER",     5, '^', '{cpu_user: >%s.1%%}',    'cpu_total'),
-    Column("BLKIO",   10, '^', '{blkio_bw: >%s}',        'blkio_bw_bytes'),
-    Column("TIME+",   14, '^', '{cpu_total_str: >%ss}',  'cpu_total_seconds'),
-    Column("CGROUP",  '', '<', '{cgroup:%ss}',           'cgroup'),
+    Column("OWNER",   10, '<', '{:%ss}',       'owner',          'owner'),
+    Column("PROC",     4, '>', '{:%sd}',      'tasks',           'tasks'),
+    Column("CURRENT", 17, '^', '{:%ss}',      'memory_cur_str',  'memory_cur_bytes'),
+    Column("PEAK",     8, '^', '{:>%ss}',     'memory_peak_str', 'memory_peak_bytes'),
+    Column("SYST",     5, '^', '{: >%s.1%%}', 'cpu_syst',        'cpu_total'),
+    Column("USER",     5, '^', '{: >%s.1%%}', 'cpu_user',        'cpu_total'),
+    Column("BLKIO",   10, '^', '{: >%s}',     'blkio_bw',        'blkio_bw_bytes'),
+    Column("TIME+",   14, '^', '{: >%ss}',    'cpu_total_str',   'cpu_total_seconds'),
+    Column("CGROUP",  '', '<', '{:%ss}',      'cgroup',          'cgroup'),
 ]
 
 # TODO:
@@ -274,7 +274,6 @@ def render_tree(results, tree, level=0, level_done=0, node='/'):
             _tree.extend([curses.ACS_LTEE, curses.ACS_HLINE, ' '])
 
         # Commit, recurse
-        line['cgroup'] = os.path.basename(cgroup)
         line['_tree'] = _tree
         results.append(line)
         render_tree(results, tree, level, level_done, cgroup)
@@ -334,19 +333,20 @@ def display(scr, results, conf):
         try:
             for col in COLUMNS:
                 cell_tpl = col.col_fmt % (col.width if col.width else width - y)
+                data_point = line.get(col.col_data, '')
 
                 if col.title == 'CGROUP' and CONFIGURATION['tree']:
+                    data_point = os.path.basename(data_point) or '[root]'
                     scr.addch(' ')
                     for c in line.get('_tree', []):
                         scr.addch(c)
                         y+=1
 
-                scr.addstr(lineno, y, cell_tpl.format(**line))
+                scr.addstr(lineno, y, cell_tpl.format(data_point))
 
                 if col.width:
                     y += col.width + 1
         except:
-            raise
             break
         lineno += 1
 
