@@ -1,7 +1,17 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 '''
-Iterate over all cgroup mountpoints and output global cgroup statistics
+Monitor local cgroups as used by Docker, LXC, SystemD, ...
+
+Usage:
+  ctop [--tree] [--refresh=<seconds>]
+  ctop (-h | --help)
+
+Options:
+  --tree                Show tree view by default.
+  --refresh=<seconds>   Refresh display every <seconds> [default: 1].
+  -h --help             Show this screen.
+
 '''
 
 import os
@@ -14,6 +24,8 @@ import psutil
 from collections import defaultdict
 from collections import namedtuple
 
+from docopt import docopt
+
 try:
     import curses, _curses
 except ImportError:
@@ -21,13 +33,13 @@ except ImportError:
     sys.exit(0)
 
 HIDE_EMPTY_CGROUP = True
-UPDATE_INTERVAL = 1.0 # seconds
 CGROUP_MOUNTPOINTS={}
 CONFIGURATION = {
         'sort_by': 'cpu_total',
         'sort_asc': False,
         'tree': False,
         'pause_refresh': False,
+        'refresh_interval': 1.0,
 }
 
 Column = namedtuple('Column', ['title', 'width', 'align', 'col_fmt', 'col_data', 'col_sort'])
@@ -46,7 +58,6 @@ COLUMNS = [
 
 # TODO:
 # - select display colums
-# - select refresh rate
 # - detect container technology
 # - visual CPU/memory usage
 # - auto-color
@@ -432,6 +443,12 @@ def event_listener(scr, timeout):
         return 0
 
 def main():
+    # Parse arguments
+    arguments = docopt(__doc__)
+
+    CONFIGURATION['tree'] = arguments['--tree']
+    CONFIGURATION['refresh_interval'] = float(arguments['--refresh'])
+
     # Initialization, global system data
     measures = {
         'data': defaultdict(dict),
@@ -467,11 +484,11 @@ def main():
             results = built_statistics(measures, CONFIGURATION)
             display(stdscr, results, CONFIGURATION)
             sleep_start = time.time()
-            while CONFIGURATION['pause_refresh'] or time.time() < sleep_start + UPDATE_INTERVAL:
+            while CONFIGURATION['pause_refresh'] or time.time() < sleep_start + CONFIGURATION['refresh_interval']:
                 if CONFIGURATION['pause_refresh']:
                     to_sleep = -1
                 else:
-                    to_sleep = int((sleep_start + UPDATE_INTERVAL - time.time())*1000)
+                    to_sleep = int((sleep_start + CONFIGURATION['refresh_interval'] - time.time())*1000)
                 ret = event_listener(stdscr, to_sleep)
                 if ret == 2:
                     display(stdscr, results, CONFIGURATION)
