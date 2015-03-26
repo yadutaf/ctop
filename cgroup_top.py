@@ -45,10 +45,9 @@ CONFIGURATION = {
 Column = namedtuple('Column', ['title', 'width', 'align', 'col_fmt', 'col_data', 'col_sort'])
 
 COLUMNS = [
-    Column("OWNER",   10, '<', '{:%ss}',       'owner',          'owner'),
+    Column("OWNER",   10, '<', '{:%ss}',      'owner',          'owner'),
     Column("PROC",     4, '>', '{:%sd}',      'tasks',           'tasks'),
-    Column("CURRENT", 17, '^', '{:%ss}',      'memory_cur_str',  'memory_cur_bytes'),
-    Column("PEAK",     8, '^', '{:>%ss}',     'memory_peak_str', 'memory_peak_bytes'),
+    Column("MEMORY",  17, '^', '{:%ss}',      'memory_cur_str',  'memory_cur_bytes'),
     Column("SYST",     5, '^', '{: >%s.1%%}', 'cpu_syst',        'cpu_total'),
     Column("USER",     5, '^', '{: >%s.1%%}', 'cpu_user',        'cpu_total'),
     Column("BLKIO",   10, '^', '{: >%s}',     'blkio_bw',        'blkio_bw_bytes'),
@@ -194,7 +193,6 @@ def collect(measures):
         # list all "folders" under mountpoint
         for cgroup in cgroups(CGROUP_MOUNTPOINTS['memory']):
             cur[cgroup.name]['memory.usage_in_bytes'] = cgroup['memory.usage_in_bytes']
-            cur[cgroup.name]['memory.max_usage_in_bytes'] = cgroup['memory.usage_in_bytes']
             cur[cgroup.name]['memory.limit_in_bytes'] = min(int(cgroup['memory.limit_in_bytes']), measures['global']['total_memory'])
 
     # Collect CPU statistics
@@ -244,7 +242,6 @@ def built_statistics(measures, conf):
             'tasks': len(data['tasks']),
             'memory_cur_bytes': data.get('memory.usage_in_bytes', 0),
             'memory_limit_bytes': data.get('memory.limit_in_bytes', measures['global']['total_memory']),
-            'memory_peak_bytes': data.get('memory.max_usage_in_bytes', 0),
             'cpu_total_seconds': data.get('cpuacct.stat', {}).get('system', 0) + data.get('cpuacct.stat', {}).get('user', 0),
             'cpu_syst': cpu_usage.get('system', 0) / cpu_to_percent,
             'cpu_user': cpu_usage.get('user', 0) / cpu_to_percent,
@@ -255,7 +252,6 @@ def built_statistics(measures, conf):
         line['cpu_total_str'] = to_human_time(line['cpu_total_seconds'])
         line['memory_cur_percent'] = line['memory_cur_bytes'] / line['memory_limit_bytes']
         line['memory_cur_str'] = "{: >7}/{: <7}".format(to_human(line['memory_cur_bytes']), to_human(line['memory_limit_bytes']))
-        line['memory_peak_str'] = to_human(line['memory_peak_bytes'])
         line['blkio_bw'] = to_human(line['blkio_bw_bytes'], 'B/s')
         results.append(line)
 
