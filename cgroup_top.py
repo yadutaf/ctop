@@ -337,14 +337,14 @@ def display(scr, results, conf):
 
                 if col.title == 'CGROUP' and CONFIGURATION['tree']:
                     data_point = os.path.basename(data_point) or '[root]'
-                    scr.addch(' ')
+
                     for c in line.get('_tree', []):
-                        scr.addch(c)
+                        scr.addch(c, curses.color_pair(4))
                         y+=1
 
                 scr.addstr(lineno, y, cell_tpl.format(data_point))
-
                 if col.width:
+                    scr.addch(' ')
                     y += col.width + 1
         except:
             break
@@ -442,6 +442,8 @@ def main():
         # Curses colors
         curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_GREEN) # header
         curses.init_pair(2, curses.COLOR_BLACK, curses.COLOR_CYAN)  # focused header / line
+        curses.init_pair(3, curses.COLOR_WHITE, -1)  # regular
+        curses.init_pair(4, curses.COLOR_CYAN,  -1)  # tree
 
         # Main loop
         while True:
