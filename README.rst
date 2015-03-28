@@ -55,7 +55,7 @@ Requirements
 
 Screenshots
 -----------
-![ctop in action](screenshots/screenshot.png)
+.. image:: screenshots/screenshot.png
 
 Licence
 -------
