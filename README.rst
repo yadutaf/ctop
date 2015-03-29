@@ -53,6 +53,10 @@ Requirements
 * pip
 * at least one cgroup hierarchie mounted
 
+Screenshot
+-----------
+.. image:: screenshots/screenshot.png
+
 Licence
 -------
 
