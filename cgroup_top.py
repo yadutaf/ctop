@@ -68,7 +68,7 @@ COLUMNS_AVAILABLE = {
 # - persist preferences
 # - dynamic column width
 # - handle small screens
-# - test/fix python 2.6
+# - test/fix python 2.6 --> indices in format strings
 
 ## Utils
 
@@ -317,7 +317,7 @@ def display(scr, results, conf):
         results = prepare_tree(results)
 
     # Display statistics
-    curses.endwin()
+    scr.clear()
     height, width = scr.getmaxyx()
 
     # Title line && templates
