@@ -17,11 +17,12 @@ Options:
 '''
 
 import os
+import re
 import sys
 import stat
 import pwd
 import time
-import psutil
+import multiprocessing
 
 from collections import defaultdict
 from collections import namedtuple
@@ -93,6 +94,23 @@ def to_human_time(seconds):
     else:
         return '%02d:%02d.%02d' % (hours, minutes, seconds)
 
+def get_total_memory():
+    '''
+    Get total memory from /proc if available.
+    '''
+    try:
+        with open('/proc/meminfo') as f:
+            content = f.read()
+    except OSError:
+        content = ''
+
+    for line in content.split('\n'):
+        fields = re.split(' +', line)
+        if fields[0].strip() == "MemTotal:":
+            return int(fields[1])*1024
+
+    return -1
+
 class Cgroup(object):
     def __init__(self, path, base_path):
         self.path = path
@@ -134,7 +152,7 @@ class Cgroup(object):
             content = content.split('\n')
 
             if ' ' in content[0]:
-                content = dict((l.split(' ', 1) for l in content))
+                content = dict((re.split(' +', l, 1) for l in content))
                 for k, v in content.iteritems():
                     content[k] = self._coerce(v)
             else:
@@ -476,8 +494,8 @@ def main():
     measures = {
         'data': defaultdict(dict),
         'global': {
-            'total_cpu': psutil.cpu_count(),
-            'total_memory': psutil.virtual_memory().total,
+            'total_cpu': multiprocessing.cpu_count(),
+            'total_memory': get_total_memory(),
             'scheduler_frequency': os.sysconf('SC_CLK_TCK'),
         }
     }

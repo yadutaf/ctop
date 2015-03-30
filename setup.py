@@ -21,7 +21,6 @@ setup(
     py_modules=['cgroup_top'],
     scripts=['bin/ctop'],
     install_requires=[
-        'psutil==2.2.1',
         'docopt==0.6.2',
     ],
     license='MIT',
