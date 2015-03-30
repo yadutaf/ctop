@@ -50,14 +50,14 @@ Column = namedtuple('Column', ['title', 'width', 'align', 'col_fmt', 'col_data',
 COLUMNS = []
 COLUMNS_MANDATORY = ['name']
 COLUMNS_AVAILABLE = {
-    'owner':     Column("OWNER",   10, '<', '{:%ss}',      'owner',           'owner'),
-    'processes': Column("PROC",     4, '>', '{:%sd}',      'tasks',           'tasks'),
-    'memory':    Column("MEMORY",  17, '^', '{:%ss}',      'memory_cur_str',  'memory_cur_bytes'),
-    'cpu-sys':   Column("SYST",     5, '^', '{: >%s.1%%}', 'cpu_syst',        'cpu_total'),
-    'cpu-user':  Column("USER",     5, '^', '{: >%s.1%%}', 'cpu_user',        'cpu_total'),
-    'blkio':     Column("BLKIO",   10, '^', '{: >%s}',     'blkio_bw',        'blkio_bw_bytes'),
-    'cpu-time':  Column("TIME+",   14, '^', '{: >%ss}',    'cpu_total_str',   'cpu_total_seconds'),
-    'name':      Column("CGROUP",  '', '<', '{:%ss}',      'cgroup',          'cgroup'),
+    'owner':     Column("OWNER",   10, '<', '{0:%ss}',      'owner',           'owner'),
+    'processes': Column("PROC",     4, '>', '{0:%sd}',      'tasks',           'tasks'),
+    'memory':    Column("MEMORY",  17, '^', '{0:%ss}',      'memory_cur_str',  'memory_cur_bytes'),
+    'cpu-sys':   Column("SYST",     5, '^', '{0: >%s.1%%}', 'cpu_syst',        'cpu_total'),
+    'cpu-user':  Column("USER",     5, '^', '{0: >%s.1%%}', 'cpu_user',        'cpu_total'),
+    'blkio':     Column("BLKIO",   10, '^', '{0: >%s}',     'blkio_bw',        'blkio_bw_bytes'),
+    'cpu-time':  Column("TIME+",   14, '^', '{0: >%ss}',    'cpu_total_str',   'cpu_total_seconds'),
+    'name':      Column("CGROUP",  '', '<', '{0:%ss}',      'cgroup',          'cgroup'),
 }
 
 # TODO:
@@ -68,7 +68,6 @@ COLUMNS_AVAILABLE = {
 # - persist preferences
 # - dynamic column width
 # - handle small screens
-# - test/fix python 2.6 --> indices in format strings
 
 ## Utils
 
@@ -76,9 +75,9 @@ def to_human(num, suffix='B'):
     num = int(num)
     for unit in [' ','K','M','G','T','P','E','Z']:
         if abs(num) < 1024.0:
-            return "{:.1f}{}{}".format(num, unit, suffix)
+            return "{0:.1f}{1}{2}".format(num, unit, suffix)
         num /= 1024.0
-    return "{:5.1d}{}{}" % (num, 'Y', suffix)
+    return "{0:5.1d}{1}{2}" % (num, 'Y', suffix)
 
 def div(num, by):
     res = num / by
@@ -256,7 +255,7 @@ def built_statistics(measures, conf):
         line['cpu_total'] = line['cpu_syst'] + line['cpu_user'],
         line['cpu_total_str'] = to_human_time(line['cpu_total_seconds'])
         line['memory_cur_percent'] = line['memory_cur_bytes'] / line['memory_limit_bytes']
-        line['memory_cur_str'] = "{: >7}/{: <7}".format(to_human(line['memory_cur_bytes']), to_human(line['memory_limit_bytes']))
+        line['memory_cur_str'] = "{0: >7}/{1: <7}".format(to_human(line['memory_cur_bytes']), to_human(line['memory_limit_bytes']))
         line['blkio_bw'] = to_human(line['blkio_bw_bytes'], 'B/s')
         results.append(line)
 
@@ -327,7 +326,7 @@ def display(scr, results, conf):
  
     for col in COLUMNS:
         # Build templates
-        title_fmt = '{:%s%ss}' % (col.align, col.width)
+        title_fmt = '{0:%s%ss}' % (col.align, col.width)
         line_tpl.append(col.col_fmt % (col.width))
 
         # Build title line
