@@ -1,6 +1,14 @@
 CHANGELOG
 #########
 
+v0.3.1
+======
+
+ - enhancement: drop 'psutil' dependency
+ - enhancement: python 2.6 compatibility
+ - fix: phantom container lines after cgroup termination
+ - doc: add screenshot
+
 v0.3.0
 ======
 
@@ -30,5 +38,4 @@ v0.1.0
 ======
 
 Initial release
-
 

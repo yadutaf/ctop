@@ -1,18 +1,14 @@
 #!/usr/bin/env python
 
-import sys
 import os
 from setuptools import setup
-
-if sys.version_info < (2,7):
-    raise NotImplementedError("Sorry, you need at least Python 2.7 to use ctop.")
 
 with open(os.path.join(os.path.dirname(__file__), 'README.rst')) as f:
     readme = f.read()
 
 setup(
     name='ctop',
-    version='0.3.0',
+    version='0.3.1',
     description='A lightweight top like monitor for linux CGroups',
     long_description=readme,
     author='Jean-Tiare Le Bigot',
@@ -33,6 +29,7 @@ setup(
         'Intended Audience :: System Administrators',
         'Topic :: System :: Monitoring',
         'License :: OSI Approved :: MIT License',
+        'Programming Language :: Python :: 2.6',
         'Programming Language :: Python :: 2.7',
     ],
 )

@@ -3,6 +3,8 @@ CTOP
 
 A lightweight top like monitor for linux CGroups
 
+.. image:: screenshots/screenshot.png
+
 Introduction
 ------------
 
@@ -49,13 +51,8 @@ OR
 Requirements
 ------------
 
-* python 2.7.x
+* python >=2.6
 * pip
-* at least one cgroup hierarchie mounted
-
-Screenshot
------------
-.. image:: screenshots/screenshot.png
 
 Licence
 -------
