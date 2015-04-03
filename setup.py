@@ -16,9 +16,6 @@ setup(
     url='https://github.com/yadutaf/ctop',
     py_modules=['cgroup_top'],
     scripts=['bin/ctop'],
-    install_requires=[
-        'docopt==0.6.2',
-    ],
     license='MIT',
     platforms = 'any',
     classifiers=[

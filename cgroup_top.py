@@ -27,7 +27,7 @@ import multiprocessing
 from collections import defaultdict
 from collections import namedtuple
 
-from docopt import docopt
+from optparse import OptionParser
 
 try:
     import curses, _curses
@@ -467,13 +467,19 @@ def rebuild_columns():
 
 def main():
     # Parse arguments
-    arguments = docopt(__doc__)
+    parser = OptionParser()
+    parser.add_option("--tree",     action="store_true",                default=False, help="show tree view by default")
+    parser.add_option("--refresh",  action="store",      type="int",    default=1,     help="Refresh display every <seconds>")
+    parser.add_option("--columns",  action="store",      type="string", default="owner,processes,memory,cpu-sys,cpu-user,blkio,cpu-time", help="List of optional columns to display. Always includes 'name'")
+    parser.add_option("--sort-col", action="store",      type="string", default="cpu-user", help="Select column to sort by initially. Can be changed dynamically.")
 
-    CONFIGURATION['tree'] = arguments['--tree']
-    CONFIGURATION['refresh_interval'] = float(arguments['--refresh'])
+    options, args = parser.parse_args()
+
+    CONFIGURATION['tree'] = options.tree
+    CONFIGURATION['refresh_interval'] = float(options.refresh)
     CONFIGURATION['columns'] = []
 
-    for col in arguments['--columns'].split(','):
+    for col in options.columns.split(','):
         col = col.strip()
         if col in COLUMNS_MANDATORY:
             continue
@@ -484,11 +490,11 @@ def main():
         CONFIGURATION['columns'].append(col)
     rebuild_columns()
 
-    if arguments['--sort-col'] not in COLUMNS_AVAILABLE:
-        print >>sys.stderr, "Invalid sort column name", arguments['--sort-col']
+    if options.sort_col not in COLUMNS_AVAILABLE:
+        print >>sys.stderr, "Invalid sort column name", options.sort_col
         print __doc__
         sys.exit(1)
-    CONFIGURATION['sort_by'] = COLUMNS_AVAILABLE[arguments['--sort-col']].col_sort
+    CONFIGURATION['sort_by'] = COLUMNS_AVAILABLE[options.sort_col].col_sort
 
     # Initialization, global system data
     measures = {

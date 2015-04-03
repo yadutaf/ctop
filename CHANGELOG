@@ -1,6 +1,11 @@
 CHANGELOG
 #########
 
+v0.3.2 (unreleased)
+======
+
+ - enhancement: drop 'docopt' dependency
+
 v0.3.1
 ======
 

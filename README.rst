@@ -45,14 +45,12 @@ OR
 
   git clone https://github.com/yadutaf/ctop.git
   cd ctop
-  pip install -r requirements.txt
-  ./ctop.py
+  ./cgroup_top.py
 
 Requirements
 ------------
 
 * python >=2.6
-* pip
 
 Licence
 -------
