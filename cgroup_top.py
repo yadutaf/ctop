@@ -69,6 +69,7 @@ COLUMNS_AVAILABLE = {
 # - persist preferences
 # - dynamic column width
 # - handle small screens
+# - inconsistent tree view
 
 ## Utils
 
@@ -260,7 +261,7 @@ def built_statistics(measures, conf):
     for cgroup, data in measures['data'].iteritems():
         cpu_usage = data.get('cpuacct.stat.diff', {})
         line = {
-            'owner': data.get('owner', 'nobody'),
+            'owner': str(data.get('owner', 'nobody')),
             'tasks': len(data['tasks']),
             'memory_cur_bytes': data.get('memory.usage_in_bytes', 0),
             'memory_limit_bytes': data.get('memory.limit_in_bytes', measures['global']['total_memory']),
