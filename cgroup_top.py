@@ -44,6 +44,7 @@ CONFIGURATION = {
         'pause_refresh': False,
         'refresh_interval': 1.0,
         'columns': [],
+        'selected_line': 1, # if int --> line num. If str, cgroup name
 }
 
 Column = namedtuple('Column', ['title', 'width', 'align', 'col_fmt', 'col_data', 'col_sort'])
@@ -345,6 +346,8 @@ def display(scr, results, conf):
 
     if CONFIGURATION['tree']:
         results = prepare_tree(results)
+    if CONFIGURATION['selected_line'] >= len(results):
+        CONFIGURATION['selected_line'] = len(results)
 
     # Display statistics
     scr.clear()
@@ -370,21 +373,27 @@ def display(scr, results, conf):
     lineno = 1
     for line in results:
         y = 0
+        if lineno == CONFIGURATION['selected_line']:
+            col_reg, col_tree = curses.color_pair(2), curses.color_pair(2)
+        else:
+            col_reg, col_tree = colors = curses.color_pair(0), curses.color_pair(4)
+
+        scr.addstr(lineno, 0, ' '*width, col_reg)
+
         try:
             for col in COLUMNS:
-                cell_tpl = col.col_fmt % (col.width if col.width else width - y)
+                cell_tpl = col.col_fmt % (col.width if col.width else 1)
                 data_point = line.get(col.col_data, '')
 
                 if col.title == 'CGROUP' and CONFIGURATION['tree']:
                     data_point = os.path.basename(data_point) or '[root]'
 
                     for c in line.get('_tree', []):
-                        scr.addch(c, curses.color_pair(4))
+                        scr.addch(c, col_tree)
                         y+=1
 
-                scr.addstr(lineno, y, cell_tpl.format(data_point))
+                scr.addstr(lineno, y, cell_tpl.format(data_point)+' ', col_reg)
                 if col.width:
-                    scr.addch(' ')
                     y += col.width + 1
         except:
             break
@@ -468,6 +477,13 @@ def event_listener(scr, timeout):
             return on_mouse()
         elif c == curses.KEY_RESIZE:
             return on_resize()
+        elif c == curses.KEY_DOWN:
+            CONFIGURATION['selected_line'] += 1
+            return 2
+        elif c == curses.KEY_UP:
+            if CONFIGURATION['selected_line'] > 1:
+                CONFIGURATION['selected_line'] -= 1
+            return 2
         else:
             return on_keyboard(c)
     except _curses.error:
