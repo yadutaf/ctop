@@ -358,12 +358,12 @@ def display(scr, results, conf):
         while True:
             try:
                 i = CONFIGURATION['cgroups'].index(CONFIGURATION['selected_line_name'])
-                CONFIGURATION['selected_line'] = i+1
+                CONFIGURATION['selected_line'] = i
                 break
             except:
                 CONFIGURATION['selected_line_name'] = os.path.dirname(CONFIGURATION['selected_line_name'])
     else:
-        CONFIGURATION['selected_line_name'] = CONFIGURATION['cgroups'][CONFIGURATION['selected_line']-1]
+        CONFIGURATION['selected_line_name'] = CONFIGURATION['cgroups'][CONFIGURATION['selected_line']]
 
     # Display statistics
     scr.clear()
@@ -389,7 +389,7 @@ def display(scr, results, conf):
     lineno = 1
     for line in results:
         y = 0
-        if lineno == CONFIGURATION['selected_line']:
+        if lineno-1 == CONFIGURATION['selected_line']:
             col_reg, col_tree = curses.color_pair(2), curses.color_pair(2)
         else:
             col_reg, col_tree = colors = curses.color_pair(0), curses.color_pair(4)
@@ -454,21 +454,21 @@ def on_keyboard(c):
         return 2
     elif c == curses.KEY_DOWN:
         if CONFIGURATION['follow']:
-            i = CONFIGURATION['cgroups'].index(CONFIGURATION['selected_line_name']) + 1
+            i = CONFIGURATION['cgroups'].index(CONFIGURATION['selected_line_name'])
         else:
             i = CONFIGURATION['selected_line']
-        i = min(i+1, len(CONFIGURATION['cgroups']))
+        i = min(i+1, len(CONFIGURATION['cgroups'])-1)
         CONFIGURATION['selected_line'] = i
-        CONFIGURATION['selected_line_name'] = CONFIGURATION['cgroups'][i-1]
+        CONFIGURATION['selected_line_name'] = CONFIGURATION['cgroups'][i]
         return 2
     elif c == curses.KEY_UP:
         if CONFIGURATION['follow']:
-            i = CONFIGURATION['cgroups'].index(CONFIGURATION['selected_line_name']) + 1
+            i = CONFIGURATION['cgroups'].index(CONFIGURATION['selected_line_name'])
         else:
             i = CONFIGURATION['selected_line']
-        i = max(i-1, 1)
+        i = max(i-1, 0)
         CONFIGURATION['selected_line'] = i
-        CONFIGURATION['selected_line_name'] = CONFIGURATION['cgroups'][i-1]
+        CONFIGURATION['selected_line_name'] = CONFIGURATION['cgroups'][i]
         return 2
     return 1
 
