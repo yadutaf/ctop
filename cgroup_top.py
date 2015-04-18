@@ -280,9 +280,7 @@ def built_statistics(measures, conf):
 
     return results
 
-def render_tree(results, tree, level=0, level_done=0, node='/'):
-    level += 1
-
+def render_tree(results, tree, level=0, prefix=[], node='/'):
     # Exit condition
     if node not in tree:
         return
@@ -292,18 +290,16 @@ def render_tree(results, tree, level=0, level_done=0, node='/'):
         cgroup = line['cgroup']
 
         # Build name
-        _tree  = [' ', ' ', ' ']*level_done
-        _tree += [curses.ACS_VLINE, ' ', ' ']*max(level-level_done-1, 0)
         if i == len(tree[node]) - 1:
-            _tree.extend([curses.ACS_LLCORNER, curses.ACS_HLINE, ' '])
-            level_done += 1
+            line['_tree'] = prefix + [curses.ACS_LLCORNER, curses.ACS_HLINE, ' ']
+            _child_prefix = prefix + [' ', ' ', ' ']
         else:
-            _tree.extend([curses.ACS_LTEE, curses.ACS_HLINE, ' '])
+            line['_tree'] = prefix + [curses.ACS_LTEE, curses.ACS_HLINE, ' ']
+            _child_prefix = prefix + [curses.ACS_VLINE, ' ', ' ']
 
         # Commit, recurse
-        line['_tree'] = _tree
         results.append(line)
-        render_tree(results, tree, level, level_done, cgroup)
+        render_tree(results, tree, level+1, _child_prefix, cgroup)
 
 def prepare_tree(results):
     # Build tree
