@@ -4,11 +4,12 @@
 Monitor local cgroups as used by Docker, LXC, SystemD, ...
 
 Usage:
-  ctop [--tree] [--refresh=<seconds>] [--columns=<columns>] [--sort-col=<sort-col>]
+  ctop [--tree] [--refresh=<seconds>] [--columns=<columns>] [--sort-col=<sort-col>] [--follow=<name>]
   ctop (-h | --help)
 
 Options:
   --tree                 Show tree view by default.
+  --follow=<name>        Follow/highlight cgroup at path.
   --refresh=<seconds>    Refresh display every <seconds> [default: 1].
   --columns=<columns>    List of optional columns to display. Always includes 'name'. [default: owner,processes,memory,cpu-sys,cpu-user,blkio,cpu-time].
   --sort-col=<sort-col>  Select column to sort by initially. Can be changed dynamically. [default: cpu-user]
@@ -41,10 +42,13 @@ CONFIGURATION = {
         'sort_by': 'cpu_total',
         'sort_asc': False,
         'tree': False,
+        'follow': False,
         'pause_refresh': False,
         'refresh_interval': 1.0,
         'columns': [],
-        'selected_line': 1, # if int --> line num. If str, cgroup name
+        'selected_line': 1,
+        'selected_line_name': '/',
+        'cgroups': []
 }
 
 Column = namedtuple('Column', ['title', 'width', 'align', 'col_fmt', 'col_data', 'col_sort'])
@@ -346,8 +350,20 @@ def display(scr, results, conf):
 
     if CONFIGURATION['tree']:
         results = prepare_tree(results)
-    if CONFIGURATION['selected_line'] >= len(results):
-        CONFIGURATION['selected_line'] = len(results)
+
+    CONFIGURATION['cgroups'] = [cgroup['cgroup'] for cgroup in results]
+
+    # Ensure selected line name synced with num
+    if CONFIGURATION['follow']:
+        while True:
+            try:
+                i = CONFIGURATION['cgroups'].index(CONFIGURATION['selected_line_name'])
+                CONFIGURATION['selected_line'] = i+1
+                break
+            except:
+                CONFIGURATION['selected_line_name'] = os.path.dirname(CONFIGURATION['selected_line_name'])
+    else:
+        CONFIGURATION['selected_line_name'] = CONFIGURATION['cgroups'][CONFIGURATION['selected_line']-1]
 
     # Display statistics
     scr.clear()
@@ -407,6 +423,8 @@ def display(scr, results, conf):
         scr.addch(curses.ACS_VLINE, color)
         scr.addstr(" [P]ause: "+('On ' if CONFIGURATION['pause_refresh'] else 'Off '), color)
         scr.addch(curses.ACS_VLINE, color)
+        scr.addstr(" [F]ollow: "+('On ' if CONFIGURATION['follow']  else 'Off ') , color)
+        scr.addch(curses.ACS_VLINE, color)
         scr.addstr(" [F5] Toggle %s view "%('list' if CONFIGURATION['tree'] else 'tree'), color)
         scr.addch(curses.ACS_VLINE, color)
         scr.addstr(" [Q]uit", color)
@@ -428,9 +446,29 @@ def on_keyboard(c):
         raise KeyboardInterrupt()
     elif c == ord('p'):
         CONFIGURATION['pause_refresh'] = not CONFIGURATION['pause_refresh']
+    elif c == ord('f'):
+        CONFIGURATION['follow'] = not CONFIGURATION['follow']
         return 2
     elif c == 269: # F5
         CONFIGURATION['tree'] = not CONFIGURATION['tree']
+        return 2
+    elif c == curses.KEY_DOWN:
+        if CONFIGURATION['follow']:
+            i = CONFIGURATION['cgroups'].index(CONFIGURATION['selected_line_name']) + 1
+        else:
+            i = CONFIGURATION['selected_line']
+        i = min(i+1, len(CONFIGURATION['cgroups']))
+        CONFIGURATION['selected_line'] = i
+        CONFIGURATION['selected_line_name'] = CONFIGURATION['cgroups'][i-1]
+        return 2
+    elif c == curses.KEY_UP:
+        if CONFIGURATION['follow']:
+            i = CONFIGURATION['cgroups'].index(CONFIGURATION['selected_line_name']) + 1
+        else:
+            i = CONFIGURATION['selected_line']
+        i = max(i-1, 1)
+        CONFIGURATION['selected_line'] = i
+        CONFIGURATION['selected_line_name'] = CONFIGURATION['cgroups'][i-1]
         return 2
     return 1
 
@@ -477,13 +515,6 @@ def event_listener(scr, timeout):
             return on_mouse()
         elif c == curses.KEY_RESIZE:
             return on_resize()
-        elif c == curses.KEY_DOWN:
-            CONFIGURATION['selected_line'] += 1
-            return 2
-        elif c == curses.KEY_UP:
-            if CONFIGURATION['selected_line'] > 1:
-                CONFIGURATION['selected_line'] -= 1
-            return 2
         else:
             return on_keyboard(c)
     except _curses.error:
@@ -499,6 +530,7 @@ def main():
     parser = OptionParser()
     parser.add_option("--tree",     action="store_true",                default=False, help="show tree view by default")
     parser.add_option("--refresh",  action="store",      type="int",    default=1,     help="Refresh display every <seconds>")
+    parser.add_option("--follow",   action="store",      type="string", default="",   help="Follow cgroup path")
     parser.add_option("--columns",  action="store",      type="string", default="owner,type,processes,memory,cpu-sys,cpu-user,blkio,cpu-time", help="List of optional columns to display. Always includes 'name'")
     parser.add_option("--sort-col", action="store",      type="string", default="cpu-user", help="Select column to sort by initially. Can be changed dynamically.")
 
@@ -507,6 +539,10 @@ def main():
     CONFIGURATION['tree'] = options.tree
     CONFIGURATION['refresh_interval'] = float(options.refresh)
     CONFIGURATION['columns'] = []
+
+    if options.follow:
+        CONFIGURATION['selected_line_name'] = options.follow
+        CONFIGURATION['follow'] = True
 
     for col in options.columns.split(','):
         col = col.strip()
