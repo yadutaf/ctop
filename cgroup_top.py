@@ -52,6 +52,7 @@ COLUMNS = []
 COLUMNS_MANDATORY = ['name']
 COLUMNS_AVAILABLE = {
     'owner':     Column("OWNER",   10, '<', '{0:%ss}',      'owner',           'owner'),
+    'type':      Column("TYPE",    10, '<', '{0:%ss}',      'type',            'type'),
     'processes': Column("PROC",     4, '>', '{0:%sd}',      'tasks',           'tasks'),
     'memory':    Column("MEMORY",  17, '^', '{0:%ss}',      'memory_cur_str',  'memory_cur_bytes'),
     'cpu-sys':   Column("SYST",     5, '^', '{0: >%s.1%%}', 'cpu_syst',        'cpu_total'),
@@ -62,14 +63,12 @@ COLUMNS_AVAILABLE = {
 }
 
 # TODO:
-# - detect container technology
 # - visual CPU/memory usage
 # - auto-color
 # - adapt name / commands to underlying container system
 # - persist preferences
 # - dynamic column width
 # - handle small screens
-# - inconsistent tree view
 
 ## Utils
 
@@ -211,6 +210,22 @@ def collect(measures):
             # Collect user
             cur[cgroup.name]['owner'] = cgroup.owner
 
+            # Guess cgroup owner
+            if cgroup.name.startswith('/docker/'):
+                cur[cgroup.name]['type'] = 'docker'
+            elif cgroup.name.startswith('/lxc/'):
+                cur[cgroup.name]['type'] = 'lxc'
+            elif cgroup.name.startswith('/user.slice/'):
+                cur[cgroup.name]['type'] = 'systemd'
+                _, parent, name = cgroup.name.rsplit('/', 2)
+                if parent.endswith('.scope'):
+                    if os.path.isdir('/home/%s/.local/share/lxc/%s' % (cur[cgroup.name]['owner'], name)):
+                        cur[cgroup.name]['type'] = 'lxc-user'
+            elif cgroup.name == '/user.slice' or cgroup.name == '/system.slice' or cgroup.name.startswith('/system.slice/'):
+                cur[cgroup.name]['type'] = 'systemd'
+            else:
+                cur[cgroup.name]['type'] = '-'
+
     # Collect memory statistics
     if 'memory' in CGROUP_MOUNTPOINTS:
         # list all "folders" under mountpoint
@@ -262,6 +277,7 @@ def built_statistics(measures, conf):
         cpu_usage = data.get('cpuacct.stat.diff', {})
         line = {
             'owner': str(data.get('owner', 'nobody')),
+            'type': str(data.get('type', 'cgroup')),
             'tasks': len(data['tasks']),
             'memory_cur_bytes': data.get('memory.usage_in_bytes', 0),
             'memory_limit_bytes': data.get('memory.limit_in_bytes', measures['global']['total_memory']),
@@ -467,7 +483,7 @@ def main():
     parser = OptionParser()
     parser.add_option("--tree",     action="store_true",                default=False, help="show tree view by default")
     parser.add_option("--refresh",  action="store",      type="int",    default=1,     help="Refresh display every <seconds>")
-    parser.add_option("--columns",  action="store",      type="string", default="owner,processes,memory,cpu-sys,cpu-user,blkio,cpu-time", help="List of optional columns to display. Always includes 'name'")
+    parser.add_option("--columns",  action="store",      type="string", default="owner,type,processes,memory,cpu-sys,cpu-user,blkio,cpu-time", help="List of optional columns to display. Always includes 'name'")
     parser.add_option("--sort-col", action="store",      type="string", default="cpu-user", help="Select column to sort by initially. Can be changed dynamically.")
 
     options, args = parser.parse_args()
