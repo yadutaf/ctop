@@ -74,6 +74,7 @@ COLUMNS_AVAILABLE = {
 # - persist preferences
 # - dynamic column width
 # - handle small screens
+# - massive refactoring. This code U-G-L-Y
 
 ## Utils
 
@@ -133,6 +134,26 @@ class Cgroup(object):
             return pwd.getpwuid(uid).pw_name
         except:
             return uid
+
+    @property
+    def type(self):
+        path = self.name
+
+        # Guess cgroup owner
+        if path.startswith('/docker/'):
+            return 'docker'
+        elif path.startswith('/lxc/'):
+            return 'lxc'
+        elif path.startswith('/user.slice/'):
+            _, parent, name = path.rsplit('/', 2)
+            if parent.endswith('.scope'):
+                if os.path.isdir('/home/%s/.local/share/lxc/%s' % (self.owner, name)):
+                    return 'lxc-user'
+            return 'systemd'
+        elif path == '/user.slice' or path == '/system.slice' or path.startswith('/system.slice/'):
+            return 'systemd'
+        else:
+            return '-'
 
     def _coerce(self, value):
         try:
@@ -215,21 +236,8 @@ def collect(measures):
             # Collect user
             cur[cgroup.name]['owner'] = cgroup.owner
 
-            # Guess cgroup owner
-            if cgroup.name.startswith('/docker/'):
-                cur[cgroup.name]['type'] = 'docker'
-            elif cgroup.name.startswith('/lxc/'):
-                cur[cgroup.name]['type'] = 'lxc'
-            elif cgroup.name.startswith('/user.slice/'):
-                cur[cgroup.name]['type'] = 'systemd'
-                _, parent, name = cgroup.name.rsplit('/', 2)
-                if parent.endswith('.scope'):
-                    if os.path.isdir('/home/%s/.local/share/lxc/%s' % (cur[cgroup.name]['owner'], name)):
-                        cur[cgroup.name]['type'] = 'lxc-user'
-            elif cgroup.name == '/user.slice' or cgroup.name == '/system.slice' or cgroup.name.startswith('/system.slice/'):
-                cur[cgroup.name]['type'] = 'systemd'
-            else:
-                cur[cgroup.name]['type'] = '-'
+            # Collect cgroup type
+            cur[cgroup.name]['type'] = cgroup.type
 
     # Collect memory statistics
     if 'memory' in CGROUP_MOUNTPOINTS:
