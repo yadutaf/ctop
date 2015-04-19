@@ -1,62 +1,78 @@
 CTOP
 ====
 
-A lightweight top like monitor for linux Containers
+A command line / text based Linux Containers monitoring tool that works just like you expect.
 
 .. image:: screenshots/screenshot.png
 
 Introduction
 ------------
 
-Linux Control Groups aka CGroups is a lighweight Linux mechanism to control
-resources, typically cpu and memory for a logical group of processes.
+``ctop`` will help you see what's going on at the container level. Basically,
+containers are a logical group of processes isolated using kernel's cgroups and
+namespaces. Recently, they have been made popular by Docker and they are also
+heavily used under the hood by systemd and a load of container tools like lxc,
+rocket, lmctfy and many others.
 
-Where traditional use of computers usualy involved managing resources on a
-per-user basis, cgroups allows to constrints resources at a much thiner
-granularity. For example, it possible to bound Firefox memory usage and
-run a Blender rendering job at a lower priority without involving multiple
-users neither tracking manually a bunch of PIDs.
+Under the hood, ctop will collect all metrics it can from cgroups in realtime
+and render them to instantly give you an overview of the global system health.
 
-This mechanism is at the heart of Docker, LXC and Systemd isiolation layers to
-name only a few.
+It currently collects metrics related to cpu, memory and block IO usage as well
+as metadata such as owning user (mostly for systemd based containers), uptime
+and attempts to guess the container managing technology behind.
 
-While is common and easy to monitor resources at a task level and system, there
-were no tools widely available to monitor theses resources at a logical,
-intermediary level, namely CGroups
+When the container technology has been successfully guessed, additional features
+are exposed like attaching to container (basically, it opens a shell in the
+container context) and stopping it.
 
-CTOP is the tool that is solving this specific issue.
+``ctop`` author uses it on production system to quicky detect biggest memory
+users in low memory situations.
 
-It is completely agnostic of the underlying containerization technique used.
-Your cgroups could be managed by docker, cgmanager, system or manually, it has
-been deigned to adapt to any scenario. The only requirement is to have at least
-one active cgroup hierarchie.
+Features
+--------
+
+- collect cpu, memory and blkio metrics
+- collect metadata like task count, owning user, container technology
+- sort by any column
+- optionally display logical/tree view
+- optionally follow selected cgroup/container
+- optionnaly pause the refresh (typically, to select text)
+- detects Docker, LXC, unprivileged LXC and systemd based containers
+- supports advanced features for Docker and LXC based containers
+- open a shell/attach to supported container types for further diagnose
+- stop/kill supported container types
+- click to sort / reverse
+- click to select cgroup
+- no external dependencies beyond Python >= 2.6
 
 Installation
 ------------
 
-ctop is a monitoring tool. As such, we expect that ops needing it will
-potentially be in a hurry or in a constrained production environment. This is
-why ctop deliberately supports various installation method and is designed to
-rely on no external dependency beyon Python >= 2.6 (Debian >= Squeeze).
+As a monitoring tool, ``ctop`` tries to be as dicrete as possible. Nonetheless
+it still has some expectations. It will need at least Python 2.6 with builtin
+curses support to run. This is usually found with Debian 6 and newer.
 
-This said, the recommended installation method is currently via pip
+This said, the recommended installation method relies on pip
 
 .. code:: bash
 
   pip install ctop
   ctop
 
-Alternatively, you may directly clone the git repository or get the latests
-release tarball from github:
+If using pip is not an option, which is often the case on production systems,
+you may also directly grab the self-contained source file directly from github
+and run it in place. All you'll need is Python 2.6 (Debian Squeeze):
 
 .. code:: bash
 
-  git clone https://github.com/yadutaf/ctop.git
-  cd ctop
-  ./cgroup_top.py
+  wget https://raw.githubusercontent.com/yadutaf/ctop/master/cgroup_top.py -O ctop
+  chmod +x ctop
+  ./ctop
 
-And, obviously, the docker monitoring tool supports transactional installation
-via docker itself. Note that is still experimental.
+Alternatively, if you are a Boot2docker user, you may install a Dockerized
+version of ctop instead. Please note that this is experimental and that you
+may not be able to controll / attach to your containers from ctop using this
+method:
 
 .. code:: bash
 
@@ -64,10 +80,48 @@ via docker itself. Note that is still experimental.
   docker run --volume=/sys/fs/cgroup:/sys/fs/cgroup:ro -it --rm yadutaf/ctop
   # Optionally, to resolve uids to usernames, add '--volume /etc/passwd:/etc/passwd:ro'
 
+Usage
+-----
+
+**Command line**:
+
+..code:: text
+
+  Monitor local cgroups as used by Docker, LXC, SystemD, ...
+
+  Usage:
+    ctop [--tree] [--refresh=<seconds>] [--columns=<columns>] [--sort-col=<sort-col>] [--follow=<name>]
+    ctop (-h | --help)
+
+  Options:
+    --tree                 Show tree view by default.
+    --follow=<name>        Follow/highlight cgroup at path.
+    --refresh=<seconds>    Refresh display every <seconds> [default: 1].
+    --columns=<columns>    List of optional columns to display. Always includes 'name'. [default: owner,processes,memory,cpu-sys,cpu-user,blkio,cpu-time].
+    --sort-col=<sort-col>  Select column to sort by initially. Can be changed dynamically. [default: cpu-user]
+    -h --help              Show this screen.
+
+**Control**:
+
+- press ``p`` to toggle/pause the refresh and select text.
+- press ``f`` to let selected line follow / stay on the same container. Default: Don't follow.
+- press ``q`` or ``Ctrl+C`` to quit.
+- press ``F5`` to toggle tree/list view. Default: list view.
+- press ``↑`` and ``↓`` to navigate between containers.
+- click on title line to select sort column / reverse sort order.
+- click on any container line to select it.
+
+Additionally, for supported container types (Currently Docker and LXC):
+
+- press ``a`` to attach to console output.
+- press ``e`` to open a shell in the container context. Aka 'enter' container.
+- press ``s`` to stop the container (SIGTERM).
+- press ``k`` to kill the container (SIGKILL).
+
 Requirements
 ------------
 
-* python >=2.6
+* python >=2.6 with builtin curses support
 
 Licence
 -------
