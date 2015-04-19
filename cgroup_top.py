@@ -448,7 +448,11 @@ def display(scr, results, conf):
 
         # Build title line
         color = 2 if col.col_sort == conf['sort_by'] else 1
-        scr.addstr(0, x, title_fmt.format(col.title)+' ', curses.color_pair(color))
+        try:
+            scr.addstr(0, x, title_fmt.format(col.title)+' ', curses.color_pair(color))
+        except:
+            # Handle narrow screens
+            break
         if col.width:
             x += col.width + 1
 
@@ -461,8 +465,14 @@ def display(scr, results, conf):
         else:
             col_reg, col_tree = colors = curses.color_pair(0), curses.color_pair(4)
 
-        scr.addstr(lineno, 0, ' '*width, col_reg)
+        # Draw line background
+        try:
+            scr.addstr(lineno, 0, ' '*width, col_reg)
+        except:
+            # Handle small screens
+            break
 
+        # Draw line content
         try:
             for col in COLUMNS:
                 cell_tpl = col.col_fmt % (col.width if col.width else 1)
@@ -479,13 +489,22 @@ def display(scr, results, conf):
                 if col.width:
                     y += col.width + 1
         except:
-            break
+            # Handle narrow screens
+            pass
         lineno += 1
+    else:
+        # Make sure last line did not wrap, clear it if needed
+        try: scr.addstr(lineno, 0, ' '*width)
+        except: pass
 
     # status line
     try:
         color = curses.color_pair(2)
-        scr.addstr(height-1, 0, ' '*(width-1), color)
+        try:
+            scr.addstr(height-1, 0, ' '*(width), color)
+        except:
+            # Last char wraps, on purpose: draw full line
+            pass
         scr.addstr(height-1, 0, " CTOP ", color)
         scr.addch(curses.ACS_VLINE, color)
         scr.addstr(" [P]ause: "+('On ' if CONFIGURATION['pause_refresh'] else 'Off '), color)
@@ -505,8 +524,7 @@ def display(scr, results, conf):
 
         scr.addstr(" [Q]uit", color)
     except:
-        # be resize proof
-        raise
+        # Handle narrow screens
         pass
 
     scr.refresh()
