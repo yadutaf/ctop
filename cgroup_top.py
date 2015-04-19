@@ -23,6 +23,7 @@ import sys
 import stat
 import pwd
 import time
+import subprocess
 import multiprocessing
 
 from collections import defaultdict
@@ -36,6 +37,12 @@ except ImportError:
     print >> sys.stderr, "Curse is not available on this system. Exiting."
     sys.exit(0)
 
+def cmd_exists(cmd):
+    return subprocess.call(["/bin/which",  cmd], stdout=subprocess.PIPE, stderr=subprocess.PIPE) == 0
+
+HAS_LXC = cmd_exists('lxc-start')
+HAS_DOCKER = cmd_exists('docker')
+
 HIDE_EMPTY_CGROUP = True
 CGROUP_MOUNTPOINTS={}
 CONFIGURATION = {
@@ -46,9 +53,10 @@ CONFIGURATION = {
         'pause_refresh': False,
         'refresh_interval': 1.0,
         'columns': [],
-        'selected_line': 1,
+        'selected_line': None,
+        'selected_line_num': 1,
         'selected_line_name': '/',
-        'cgroups': []
+        'cgroups': [],
 }
 
 Column = namedtuple('Column', ['title', 'width', 'align', 'col_fmt', 'col_data', 'col_sort'])
@@ -117,6 +125,35 @@ def get_total_memory():
 
     return -1
 
+def run(user, cmd):
+    '''
+    Run ``cmd`` in background as ``user`` discarding any output
+
+    special user -2 means: current user
+    '''
+    prefix = []
+    cur_uid = os.getuid()
+    try:
+        cur_user = pwd.getpwuid(cur_uid).pw_name
+    except:
+        cur_user = cur_uid
+
+    if user != cur_user and user != -2:
+        if cur_uid == 0:
+            prefix = ['su', user]
+        if user == 'root':
+            prefix = ['sudo']
+        else:
+            prefix = ['sudo', '-u', user]
+
+    with open('/dev/null', 'w') as dev_null:
+        subprocess.Popen(
+            prefix+cmd,
+            stdout=dev_null,
+            stderr=dev_null,
+            close_fds=True,
+        )
+
 class Cgroup(object):
     def __init__(self, path, base_path):
         self.path = path
@@ -158,7 +195,7 @@ class Cgroup(object):
     def _coerce(self, value):
         try:
             return int(value)
-        except: 
+        except:
             pass
 
         try:
@@ -170,7 +207,7 @@ class Cgroup(object):
 
     def __getitem__(self, name):
         path = os.path.join(self.base_path, self.path, name)
-        
+
         with open(path) as f:
             content = f.read().strip()
 
@@ -366,12 +403,13 @@ def display(scr, results, conf):
         while True:
             try:
                 i = CONFIGURATION['cgroups'].index(CONFIGURATION['selected_line_name'])
-                CONFIGURATION['selected_line'] = i
+                CONFIGURATION['selected_line_num'] = i
                 break
             except:
                 CONFIGURATION['selected_line_name'] = os.path.dirname(CONFIGURATION['selected_line_name'])
     else:
-        CONFIGURATION['selected_line_name'] = CONFIGURATION['cgroups'][CONFIGURATION['selected_line']]
+        CONFIGURATION['selected_line_name'] = CONFIGURATION['cgroups'][CONFIGURATION['selected_line_num']]
+    CONFIGURATION['selected_line'] = results[CONFIGURATION['selected_line_num']]
 
     # Display statistics
     scr.clear()
@@ -381,7 +419,7 @@ def display(scr, results, conf):
     x = 0
     line_tpl = []
     scr.addstr(0, 0, ' '*width, curses.color_pair(1))
- 
+
     for col in COLUMNS:
         # Build templates
         title_fmt = '{0:%s%ss}' % (col.align, col.width)
@@ -397,7 +435,7 @@ def display(scr, results, conf):
     lineno = 1
     for line in results:
         y = 0
-        if lineno-1 == CONFIGURATION['selected_line']:
+        if lineno-1 == CONFIGURATION['selected_line_num']:
             col_reg, col_tree = curses.color_pair(2), curses.color_pair(2)
         else:
             col_reg, col_tree = colors = curses.color_pair(0), curses.color_pair(4)
@@ -435,9 +473,19 @@ def display(scr, results, conf):
         scr.addch(curses.ACS_VLINE, color)
         scr.addstr(" [F5] Toggle %s view "%('list' if CONFIGURATION['tree'] else 'tree'), color)
         scr.addch(curses.ACS_VLINE, color)
+
+        # Do we have any actions available for *selected* line ?
+        selected = results[CONFIGURATION['selected_line_num']]
+        selected_type = selected['type']
+        if selected_type == 'docker' and HAS_DOCKER or \
+           selected_type in ['lxc', 'lxc-user'] and HAS_LXC:
+            scr.addstr(" [S]top, [K]ill ", color)
+            scr.addch(curses.ACS_VLINE, color)
+
         scr.addstr(" [Q]uit", color)
     except:
         # be resize proof
+        raise
         pass
 
     scr.refresh()
@@ -457,6 +505,24 @@ def on_keyboard(c):
     elif c == ord('f'):
         CONFIGURATION['follow'] = not CONFIGURATION['follow']
         return 2
+    elif c == ord('s'):
+        selected = CONFIGURATION['selected_line']
+        selected_name = os.path.basename(selected['cgroup'])
+
+        if selected['type'] == 'docker' and HAS_DOCKER:
+            run(-2, ['docker', 'stop', selected_name])
+        elif selected['type'] in ['lxc', 'lxc-user'] and HAS_LXC:
+            run(selected['owner'], ['lxc-stop', '--name', selected_name, '--nokill', '--nowait'])
+        return 1
+    elif c == ord('k'):
+        selected = CONFIGURATION['selected_line']
+        selected_name = os.path.basename(selected['cgroup'])
+
+        if selected['type'] == 'docker' and HAS_DOCKER:
+            run(-2, ['docker', 'stop', '-t', '0', selected_name])
+        elif selected['type'] in ['lxc', 'lxc-user'] and HAS_LXC:
+            run(selected['owner'], ['lxc-stop', '-k', '--name', selected_name, '--nowait'])
+        return 2
     elif c == 269: # F5
         CONFIGURATION['tree'] = not CONFIGURATION['tree']
         return 2
@@ -464,18 +530,18 @@ def on_keyboard(c):
         if CONFIGURATION['follow']:
             i = CONFIGURATION['cgroups'].index(CONFIGURATION['selected_line_name'])
         else:
-            i = CONFIGURATION['selected_line']
+            i = CONFIGURATION['selected_line_num']
         i = min(i+1, len(CONFIGURATION['cgroups'])-1)
-        CONFIGURATION['selected_line'] = i
+        CONFIGURATION['selected_line_num'] = i
         CONFIGURATION['selected_line_name'] = CONFIGURATION['cgroups'][i]
         return 2
     elif c == curses.KEY_UP:
         if CONFIGURATION['follow']:
             i = CONFIGURATION['cgroups'].index(CONFIGURATION['selected_line_name'])
         else:
-            i = CONFIGURATION['selected_line']
+            i = CONFIGURATION['selected_line_num']
         i = max(i-1, 0)
-        CONFIGURATION['selected_line'] = i
+        CONFIGURATION['selected_line_num'] = i
         CONFIGURATION['selected_line_name'] = CONFIGURATION['cgroups'][i]
         return 2
     return 1
