@@ -85,8 +85,6 @@ Usage
 
 **Command line**:
 
-..code:: text
-
   Monitor local cgroups as used by Docker, LXC, SystemD, ...
 
   Usage:
@@ -99,7 +97,7 @@ Usage
     --refresh=<seconds>    Refresh display every <seconds> [default: 1].
     --columns=<columns>    List of optional columns to display. Always includes 'name'. [default: owner,processes,memory,cpu-sys,cpu-user,blkio,cpu-time].
     --sort-col=<sort-col>  Select column to sort by initially. Can be changed dynamically. [default: cpu-user]
-    -h --help              Show this screen.
+    --help                 Show this screen.
 
 **Control**:
 
