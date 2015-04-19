@@ -1,7 +1,7 @@
 CTOP
 ====
 
-A lightweight top like monitor for linux CGroups
+A lightweight top like monitor for linux Containers
 
 .. image:: screenshots/screenshot.png
 
