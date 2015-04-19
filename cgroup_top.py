@@ -695,6 +695,15 @@ def main():
 
     init()
 
+    if not CGROUP_MOUNTPOINTS:
+        print >>sys.stderr, "[ERROR] Failed to locate cgroup mountpoints."
+        if os.path.isfile('/.dockerenv'):
+            print >>sys.stderr, """
+Hint: It seems you are running inside a Docker container.
+      Please make sure to expose host's cgroups with
+      '--volume=/sys/fs/cgroup:/sys/fs/cgroup:ro'"""
+        sys.exit(1)
+
     try:
         # Curse initialization
         stdscr = curses.initscr()
