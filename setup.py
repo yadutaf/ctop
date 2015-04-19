@@ -8,7 +8,7 @@ with open(os.path.join(os.path.dirname(__file__), 'README.rst')) as f:
 
 setup(
     name='ctop',
-    version='0.3.1',
+    version='0.4.0',
     description='A lightweight top like monitor for linux CGroups',
     long_description=readme,
     author='Jean-Tiare Le Bigot',
@@ -21,7 +21,7 @@ setup(
     classifiers=[
         'Environment :: Console',
         'Environment :: Console :: Curses',
-        'Development Status :: 3 - Alpha',
+        'Development Status :: 4 - Beta',
         'Intended Audience :: Developers',
         'Intended Audience :: System Administrators',
         'Topic :: System :: Monitoring',

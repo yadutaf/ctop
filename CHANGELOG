@@ -1,9 +1,15 @@
 CHANGELOG
 #########
 
-v0.3.2 (unreleased)
+v0.4.0 (2015-04-19)
 ======
 
+ - feat: detect container system type (docker, systemd, lxc)
+ - feat: attach, enter, stop, kill supported containers
+ - feat: select container / follow container
+ - fix: mutiple crashes related to small screens
+ - fix: tree render
+ - enhancement: rewrite README
  - enhancement: drop 'docopt' dependency
 
 v0.3.1
