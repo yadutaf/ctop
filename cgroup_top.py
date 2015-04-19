@@ -79,7 +79,6 @@ COLUMNS_AVAILABLE = {
 # TODO:
 # - visual CPU/memory usage
 # - auto-color
-# - adapt name / commands to underlying container system
 # - persist preferences
 # - dynamic column width
 # - handle small screens
@@ -607,6 +606,13 @@ def on_mouse():
                     x_max += col.width + 1
                     continue
                 return 2
+        # Is it a cgroup line ?
+        elif y <= len(CONFIGURATION['cgroups']):
+            if CONFIGURATION['follow']:
+                CONFIGURATION['selected_line_name'] = CONFIGURATION['cgroups'][y-1]
+            else:
+                CONFIGURATION['selected_line_num'] = y-1
+            return 2
     return 1
 
 def on_resize():
