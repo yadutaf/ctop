@@ -23,6 +23,7 @@ import sys
 import stat
 import pwd
 import time
+import pty
 import subprocess
 import multiprocessing
 
@@ -125,9 +126,11 @@ def get_total_memory():
 
     return -1
 
-def run(user, cmd):
+def run(user, cmd, interactive=False):
     '''
-    Run ``cmd`` in background as ``user`` discarding any output
+    Run ``cmd`` as ``user``. If ``interactive`` is True, save any curses status
+    and synchronously run the command in foreground. Otherwise, run the command
+    in background, discarding any output.
 
     special user -2 means: current user
     '''
@@ -146,13 +149,32 @@ def run(user, cmd):
         else:
             prefix = ['sudo', '-u', user]
 
-    with open('/dev/null', 'w') as dev_null:
-        subprocess.Popen(
-            prefix+cmd,
-            stdout=dev_null,
-            stderr=dev_null,
-            close_fds=True,
-        )
+    if interactive:
+        # Prepare screen for interactive command
+        curses.savetty()
+        curses.nocbreak()
+        curses.echo()
+        curses.endwin()
+
+        # Run command
+        pty.spawn(prefix+cmd)
+
+        # Restore screen
+        curses.start_color() # load colors
+        curses.use_default_colors()
+        curses.noecho()      # do not echo text
+        curses.cbreak()      # do not wait for "enter"
+        curses.curs_set(0)   # hide cursor
+        curses.mousemask(curses.ALL_MOUSE_EVENTS)
+        curses.resetty()
+    else:
+        with open('/dev/null', 'w') as dev_null:
+            subprocess.Popen(
+                prefix+cmd,
+                stdout=dev_null,
+                stderr=dev_null,
+                close_fds=True,
+            )
 
 class Cgroup(object):
     def __init__(self, path, base_path):
@@ -479,7 +501,7 @@ def display(scr, results, conf):
         selected_type = selected['type']
         if selected_type == 'docker' and HAS_DOCKER or \
            selected_type in ['lxc', 'lxc-user'] and HAS_LXC:
-            scr.addstr(" [S]top, [K]ill ", color)
+            scr.addstr(" [A]ttach, [E]nter, [S]top, [K]ill ", color)
             scr.addch(curses.ACS_VLINE, color)
 
         scr.addstr(" [Q]uit", color)
@@ -504,6 +526,26 @@ def on_keyboard(c):
         CONFIGURATION['pause_refresh'] = not CONFIGURATION['pause_refresh']
     elif c == ord('f'):
         CONFIGURATION['follow'] = not CONFIGURATION['follow']
+        return 2
+    elif c == ord('a'):
+        selected = CONFIGURATION['selected_line']
+        selected_name = os.path.basename(selected['cgroup'])
+
+        if selected['type'] == 'docker' and HAS_DOCKER:
+            run(-2, ['docker', 'attach', selected_name], interactive=True)
+        elif selected['type'] in ['lxc', 'lxc-user'] and HAS_LXC:
+            run(selected['owner'], ['lxc-console', '--name', selected_name, '--', '/bin/bash'], interactive=True)
+
+        return 2
+    elif c == ord('e'):
+        selected = CONFIGURATION['selected_line']
+        selected_name = os.path.basename(selected['cgroup'])
+
+        if selected['type'] == 'docker' and HAS_DOCKER:
+            run(-2, ['docker', 'exec', '-it', selected_name, '/bin/bash'], interactive=True)
+        elif selected['type'] in ['lxc', 'lxc-user'] and HAS_LXC:
+            run(selected['owner'], ['lxc-attach', '--name', selected_name, '--', '/bin/bash'], interactive=True)
+
         return 2
     elif c == ord('s'):
         selected = CONFIGURATION['selected_line']
