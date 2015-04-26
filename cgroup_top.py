@@ -4,11 +4,12 @@
 Monitor local cgroups as used by Docker, LXC, SystemD, ...
 
 Usage:
-  ctop [--tree] [--refresh=<seconds>] [--columns=<columns>] [--sort-col=<sort-col>] [--follow=<name>]
+  ctop [--tree] [--refresh=<seconds>] [--columns=<columns>] [--sort-col=<sort-col>] [--follow=<name>] [--fold=<cgroup>, ...]
   ctop (-h | --help)
 
 Options:
   --tree                 Show tree view by default.
+  --fold=<name>          Start with <name> cgroup path folded
   --follow=<name>        Follow/highlight cgroup at path.
   --refresh=<seconds>    Refresh display every <seconds> [default: 1].
   --columns=<columns>    List of optional columns to display. Always includes 'name'. [default: owner,processes,memory,cpu-sys,cpu-user,blkio,cpu-time].
@@ -58,6 +59,7 @@ CONFIGURATION = {
         'selected_line_num': 1,
         'selected_line_name': '/',
         'cgroups': [],
+        'fold': [],
 }
 
 Column = namedtuple('Column', ['title', 'width', 'align', 'col_fmt', 'col_data', 'col_sort'])
@@ -376,6 +378,7 @@ def render_tree(results, tree, level=0, prefix=[], node='/'):
     for i, line in enumerate(tree[node]):
         cgroup = line['cgroup']
 
+
         # Build name
         if i == len(tree[node]) - 1:
             line['_tree'] = prefix + [curses.ACS_LLCORNER, curses.ACS_HLINE, ' ']
@@ -384,9 +387,12 @@ def render_tree(results, tree, level=0, prefix=[], node='/'):
             line['_tree'] = prefix + [curses.ACS_LTEE, curses.ACS_HLINE, ' ']
             _child_prefix = prefix + [curses.ACS_VLINE, ' ', ' ']
 
-        # Commit, recurse
+        # Commit, fold or recurse
         results.append(line)
-        render_tree(results, tree, level+1, _child_prefix, cgroup)
+        if cgroup not in CONFIGURATION['fold']:
+            render_tree(results, tree, level+1, _child_prefix, cgroup)
+        else:
+            line['_tree'] [-2] = '+'
 
 def prepare_tree(results):
     # Build tree
@@ -505,6 +511,9 @@ def display(scr, results, conf):
         except:
             # Last char wraps, on purpose: draw full line
             pass
+
+        selected = results[CONFIGURATION['selected_line_num']]
+
         scr.addstr(height-1, 0, " CTOP ", color)
         scr.addch(curses.ACS_VLINE, color)
         scr.addstr(" [P]ause: "+('On ' if CONFIGURATION['pause_refresh'] else 'Off '), color)
@@ -514,8 +523,12 @@ def display(scr, results, conf):
         scr.addstr(" [F5] Toggle %s view "%('list' if CONFIGURATION['tree'] else 'tree'), color)
         scr.addch(curses.ACS_VLINE, color)
 
+        # Fold control
+        if CONFIGURATION['tree']:
+            scr.addstr(" [+/-] %s "%('unfold' if selected['cgroup'] in CONFIGURATION['fold'] else 'fold'), color)
+            scr.addch(curses.ACS_VLINE, color)
+
         # Do we have any actions available for *selected* line ?
-        selected = results[CONFIGURATION['selected_line_num']]
         selected_type = selected['type']
         if selected_type == 'docker' and HAS_DOCKER or \
            selected_type in ['lxc', 'lxc-user'] and HAS_LXC:
@@ -543,6 +556,13 @@ def on_keyboard(c):
         CONFIGURATION['pause_refresh'] = not CONFIGURATION['pause_refresh']
     elif c == ord('f'):
         CONFIGURATION['follow'] = not CONFIGURATION['follow']
+        return 2
+    elif c == ord('+') or c == ord('-'):
+        cgroup = CONFIGURATION['selected_line']['cgroup']
+        if cgroup in CONFIGURATION['fold']:
+            CONFIGURATION['fold'].remove(cgroup)
+        else:
+            CONFIGURATION['fold'].append(cgroup)
         return 2
     elif c == ord('a'):
         selected = CONFIGURATION['selected_line']
@@ -670,7 +690,8 @@ def main():
     parser = OptionParser()
     parser.add_option("--tree",     action="store_true",                default=False, help="show tree view by default")
     parser.add_option("--refresh",  action="store",      type="int",    default=1,     help="Refresh display every <seconds>")
-    parser.add_option("--follow",   action="store",      type="string", default="",   help="Follow cgroup path")
+    parser.add_option("--follow",   action="store",      type="string", default="",    help="Follow cgroup path")
+    parser.add_option("--fold",     action="append",                                   help="Fold cgroup sub tree")
     parser.add_option("--columns",  action="store",      type="string", default="owner,type,processes,memory,cpu-sys,cpu-user,blkio,cpu-time", help="List of optional columns to display. Always includes 'name'")
     parser.add_option("--sort-col", action="store",      type="string", default="cpu-user", help="Select column to sort by initially. Can be changed dynamically.")
 
@@ -679,6 +700,7 @@ def main():
     CONFIGURATION['tree'] = options.tree
     CONFIGURATION['refresh_interval'] = float(options.refresh)
     CONFIGURATION['columns'] = []
+    CONFIGURATION['fold'] = options.fold or list()
 
     if options.follow:
         CONFIGURATION['selected_line_name'] = options.follow

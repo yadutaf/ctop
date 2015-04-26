@@ -3,7 +3,7 @@ CTOP
 
 A command line / text based Linux Containers monitoring tool that works just like you expect.
 
-.. image:: screenshots/screenshot.png
+.. image:: https://github.com/yadutaf/ctop/raw/master/screenshots/screenshot.png
 
 Introduction
 ------------
@@ -35,6 +35,7 @@ Features
 - collect metadata like task count, owning user, container technology
 - sort by any column
 - optionally display logical/tree view
+- optionally fold/unfold sub cgroup tree
 - optionally follow selected cgroup/container
 - optionnaly pause the refresh (typically, to select text)
 - detects Docker, LXC, unprivileged LXC and systemd based containers
@@ -88,16 +89,18 @@ Usage
   Monitor local cgroups as used by Docker, LXC, SystemD, ...
 
   Usage:
-    ctop [--tree] [--refresh=<seconds>] [--columns=<columns>] [--sort-col=<sort-col>] [--follow=<name>]
+    ctop [--tree] [--refresh=<seconds>] [--columns=<columns>] [--sort-col=<sort-col>] [--follow=<name>] [--fold=<cgroup>, ...]
     ctop (-h | --help)
 
   Options:
     --tree                 Show tree view by default.
+    --fold=<name>          Start with <name> cgroup path folded
     --follow=<name>        Follow/highlight cgroup at path.
     --refresh=<seconds>    Refresh display every <seconds> [default: 1].
     --columns=<columns>    List of optional columns to display. Always includes 'name'. [default: owner,processes,memory,cpu-sys,cpu-user,blkio,cpu-time].
     --sort-col=<sort-col>  Select column to sort by initially. Can be changed dynamically. [default: cpu-user]
-    --help                 Show this screen.
+    -h --help              Show this screen.
+
 
 **Control**:
 
@@ -106,6 +109,7 @@ Usage
 - press ``q`` or ``Ctrl+C`` to quit.
 - press ``F5`` to toggle tree/list view. Default: list view.
 - press ``↑`` and ``↓`` to navigate between containers.
+- press ``+`` or ``-`` to toggle child cgroup folding
 - click on title line to select sort column / reverse sort order.
 - click on any container line to select it.
 

@@ -1,6 +1,11 @@
 CHANGELOG
 #########
 
+v0.4.1 (unreleased)
+======
+
+ - feat: fold/unfold cgroup tree
+
 v0.4.0 (2015-04-19)
 ======
 
