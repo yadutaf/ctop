@@ -5,6 +5,8 @@ v0.4.1 (unreleased)
 ======
 
  - feat: fold/unfold cgroup tree
+ - feat: hint/error message when no cgroup is found and boot2docker is installed
+ - fix \#3: crash when no cgroup is located
 
 v0.4.0 (2015-04-19)
 ======

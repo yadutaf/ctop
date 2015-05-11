@@ -333,6 +333,10 @@ def collect(measures):
                 prev_val = prev[cgroup.name]['blkio.throttle.io_service_bytes']['Total']
                 cur[cgroup.name]['blkio.throttle.io_service_bytes.diff']['total'] = cur_val - prev_val
 
+    # Sanity check: any data at all ?
+    if not len(cur):
+        raise KeyboardInterrupt()
+
     # Apply
     measures['data'] = cur
 
@@ -435,6 +439,7 @@ def display(scr, results, conf):
             except:
                 CONFIGURATION['selected_line_name'] = os.path.dirname(CONFIGURATION['selected_line_name'])
     else:
+        CONFIGURATION['selected_line_num'] = min(len(results)-1, CONFIGURATION['selected_line_num'])
         CONFIGURATION['selected_line_name'] = CONFIGURATION['cgroups'][CONFIGURATION['selected_line_num']]
     CONFIGURATION['selected_line'] = results[CONFIGURATION['selected_line_num']]
 
@@ -685,6 +690,22 @@ def rebuild_columns():
     for col in CONFIGURATION['columns']+COLUMNS_MANDATORY:
         COLUMNS.append(COLUMNS_AVAILABLE[col])
 
+def diagnose():
+    devnull = open(os.devnull, 'w')
+    if os.path.isfile('/.dockerenv'):
+        print >>sys.stderr, """
+Hint: It seems you are running inside a Docker container.
+      Please make sure to expose host's cgroups with
+      '--volume=/sys/fs/cgroup:/sys/fs/cgroup:ro'"""
+
+    if subprocess.call(['which', 'boot2docker'], stdout=devnull, stderr=devnull) == 0:
+        print >>sys.stderr, """
+Hint: It seems you have 'boot2docker' installed.
+      To monitor Docker containers in 'boot2docker'
+      run CTOP inside the VM itself with:
+      $ docker run --volume=/sys/fs/cgroup:/sys/fs/cgroup:ro -it --rm yadutaf/ctop"""
+    devnull.close()
+
 def main():
     # Parse arguments
     parser = OptionParser()
@@ -737,12 +758,10 @@ def main():
 
     if not CGROUP_MOUNTPOINTS:
         print >>sys.stderr, "[ERROR] Failed to locate cgroup mountpoints."
-        if os.path.isfile('/.dockerenv'):
-            print >>sys.stderr, """
-Hint: It seems you are running inside a Docker container.
-      Please make sure to expose host's cgroups with
-      '--volume=/sys/fs/cgroup:/sys/fs/cgroup:ro'"""
+        diagnose()
         sys.exit(1)
+
+    results = None
 
     try:
         # Curse initialization
@@ -775,7 +794,6 @@ Hint: It seems you are running inside a Docker container.
                 ret = event_listener(stdscr, to_sleep)
                 if ret == 2:
                     display(stdscr, results, CONFIGURATION)
-
     except KeyboardInterrupt:
         pass
     finally:
@@ -783,6 +801,11 @@ Hint: It seems you are running inside a Docker container.
         stdscr.keypad(0)
         curses.echo()
         curses.endwin()
+
+    # If we found only root cgroup, me may be expecting to run in a boot2docker instance
+    if results is not None and len(results) < 2:
+        print >>sys.stderr, "[WARN] Failed to find any relevant cgroup/container."
+        diagnose()
 
 if __name__ == "__main__":
     main()
