@@ -56,7 +56,7 @@ CONFIGURATION = {
         'refresh_interval': 1.0,
         'columns': [],
         'selected_line': None,
-        'selected_line_num': 1,
+        'selected_line_num': 0,
         'selected_line_name': '/',
         'cgroups': [],
         'fold': [],
