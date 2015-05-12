@@ -18,6 +18,7 @@ Options:
 
 '''
 
+from __future__ import print_function
 import os
 import re
 import sys
@@ -36,7 +37,7 @@ from optparse import OptionParser
 try:
     import curses, _curses
 except ImportError:
-    print >> sys.stderr, "Curse is not available on this system. Exiting."
+    print("Curse is not available on this system. Exiting.", file=sys.stderr)
     sys.exit(0)
 
 def cmd_exists(cmd):
@@ -239,7 +240,7 @@ class Cgroup(object):
 
             if ' ' in content[0]:
                 content = dict((re.split(' +', l, 1) for l in content))
-                for k, v in content.iteritems():
+                for k, v in content.items():
                     content[k] = self._coerce(v)
             else:
                 content = [self._coerce(v) for v in content]
@@ -316,7 +317,7 @@ def collect(measures):
 
             # Collect CPU increase on run > 1
             if cgroup.name in prev:
-                for key, value in cur[cgroup.name]['cpuacct.stat'].iteritems():
+                for key, value in cur[cgroup.name]['cpuacct.stat'].items():
                     cur[cgroup.name]['cpuacct.stat.diff'][key] = value - prev[cgroup.name]['cpuacct.stat'][key]
 
     # Collect BlockIO statistics
@@ -350,7 +351,7 @@ def built_statistics(measures, conf):
 
     # Build data lines
     results = []
-    for cgroup, data in measures['data'].iteritems():
+    for cgroup, data in measures['data'].items():
         cpu_usage = data.get('cpuacct.stat.diff', {})
         line = {
             'owner': str(data.get('owner', 'nobody')),
@@ -693,17 +694,17 @@ def rebuild_columns():
 def diagnose():
     devnull = open(os.devnull, 'w')
     if os.path.isfile('/.dockerenv'):
-        print >>sys.stderr, """
+        print("""
 Hint: It seems you are running inside a Docker container.
       Please make sure to expose host's cgroups with
-      '--volume=/sys/fs/cgroup:/sys/fs/cgroup:ro'"""
+      '--volume=/sys/fs/cgroup:/sys/fs/cgroup:ro'""", file=sys.stderr)
 
     if subprocess.call(['which', 'boot2docker'], stdout=devnull, stderr=devnull) == 0:
-        print >>sys.stderr, """
+        print("""
 Hint: It seems you have 'boot2docker' installed.
       To monitor Docker containers in 'boot2docker'
       run CTOP inside the VM itself with:
-      $ docker run --volume=/sys/fs/cgroup:/sys/fs/cgroup:ro -it --rm yadutaf/ctop"""
+      $ docker run --volume=/sys/fs/cgroup:/sys/fs/cgroup:ro -it --rm yadutaf/ctop""", file=sys.stderr)
     devnull.close()
 
 def main():
@@ -732,15 +733,15 @@ def main():
         if col in COLUMNS_MANDATORY:
             continue
         if not col in COLUMNS_AVAILABLE:
-            print >>sys.stderr, "Invalid column name", col
-            print __doc__
+            print("Invalid column name", col, file=sys.stderr)
+            print(__doc__)
             sys.exit(1)
         CONFIGURATION['columns'].append(col)
     rebuild_columns()
 
     if options.sort_col not in COLUMNS_AVAILABLE:
-        print >>sys.stderr, "Invalid sort column name", options.sort_col
-        print __doc__
+        print("Invalid sort column name", options.sort_col, file=sys.stderr)
+        print(__doc__)
         sys.exit(1)
     CONFIGURATION['sort_by'] = COLUMNS_AVAILABLE[options.sort_col].col_sort
 
@@ -757,7 +758,7 @@ def main():
     init()
 
     if not CGROUP_MOUNTPOINTS:
-        print >>sys.stderr, "[ERROR] Failed to locate cgroup mountpoints."
+        print("[ERROR] Failed to locate cgroup mountpoints.", file=sys.stderr)
         diagnose()
         sys.exit(1)
 
@@ -804,7 +805,7 @@ def main():
 
     # If we found only root cgroup, me may be expecting to run in a boot2docker instance
     if results is not None and len(results) < 2:
-        print >>sys.stderr, "[WARN] Failed to find any relevant cgroup/container."
+        print("[WARN] Failed to find any relevant cgroup/container.", file=sys.stderr)
         diagnose()
 
 if __name__ == "__main__":
