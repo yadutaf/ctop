@@ -44,7 +44,7 @@ Features
 - stop/kill supported container types
 - click to sort / reverse
 - click to select cgroup
-- no external dependencies beyond Python >= 2.6
+- no external dependencies beyond Python >= 2.6 or Python >= 3.0
 
 Installation
 ------------
@@ -123,7 +123,7 @@ Additionally, for supported container types (Currently Docker and LXC):
 Requirements
 ------------
 
-* python >=2.6 with builtin curses support
+* python >=2.6 or python >=3.0, with builtin curses support
 
 Licence
 -------
