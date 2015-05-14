@@ -201,7 +201,7 @@ class Cgroup(object):
         path = self.name
 
         # Guess cgroup owner
-        if path.startswith('/docker/'):
+        if path.startswith('/docker/') or path.startswith('/system.slice/docker-'):
             return 'docker'
         elif path.startswith('/lxc/'):
             return 'lxc'
@@ -575,6 +575,8 @@ def on_keyboard(c):
         selected_name = os.path.basename(selected['cgroup'])
 
         if selected['type'] == 'docker' and HAS_DOCKER:
+            if selected_name.startswith('docker-'):
+                selected_name = selected_name[7:-6]
             run(-2, ['docker', 'attach', selected_name], interactive=True)
         elif selected['type'] in ['lxc', 'lxc-user'] and HAS_LXC:
             run(selected['owner'], ['lxc-console', '--name', selected_name, '--', '/bin/bash'], interactive=True)
@@ -585,6 +587,8 @@ def on_keyboard(c):
         selected_name = os.path.basename(selected['cgroup'])
 
         if selected['type'] == 'docker' and HAS_DOCKER:
+            if selected_name.startswith('docker-'):
+                selected_name = selected_name[7:-6]
             run(-2, ['docker', 'exec', '-it', selected_name, '/bin/bash'], interactive=True)
         elif selected['type'] in ['lxc', 'lxc-user'] and HAS_LXC:
             run(selected['owner'], ['lxc-attach', '--name', selected_name, '--', '/bin/bash'], interactive=True)
@@ -595,6 +599,8 @@ def on_keyboard(c):
         selected_name = os.path.basename(selected['cgroup'])
 
         if selected['type'] == 'docker' and HAS_DOCKER:
+            if selected_name.startswith('docker-'):
+                selected_name = selected_name[7:-6]
             run(-2, ['docker', 'stop', selected_name])
         elif selected['type'] in ['lxc', 'lxc-user'] and HAS_LXC:
             run(selected['owner'], ['lxc-stop', '--name', selected_name, '--nokill', '--nowait'])
@@ -604,6 +610,8 @@ def on_keyboard(c):
         selected_name = os.path.basename(selected['cgroup'])
 
         if selected['type'] == 'docker' and HAS_DOCKER:
+            if selected_name.startswith('docker-'):
+                selected_name = selected_name[7:-6]
             run(-2, ['docker', 'stop', '-t', '0', selected_name])
         elif selected['type'] in ['lxc', 'lxc-user'] and HAS_LXC:
             run(selected['owner'], ['lxc-stop', '-k', '--name', selected_name, '--nowait'])
