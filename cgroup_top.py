@@ -57,6 +57,7 @@ CONFIGURATION = {
         'refresh_interval': 1.0,
         'columns': [],
         'selected_line': None,
+        'offset': 0,
         'selected_line_num': 0,
         'selected_line_name': '/',
         'cgroups': [],
@@ -444,9 +445,24 @@ def display(scr, results, conf):
         CONFIGURATION['selected_line_name'] = CONFIGURATION['cgroups'][CONFIGURATION['selected_line_num']]
     CONFIGURATION['selected_line'] = results[CONFIGURATION['selected_line_num']]
 
+    # Get display informations
+    height, width = scr.getmaxyx()
+    list_height = height - 2 # title + status lines
+
+    # Update offset
+    max_offset = max(0, len(results) - list_height)
+    # selected line above screen limit
+    if CONFIGURATION['selected_line_num'] < CONFIGURATION['offset']:
+        CONFIGURATION['offset'] = CONFIGURATION['selected_line_num']
+    # selected line below screen limit
+    elif CONFIGURATION['selected_line_num'] - CONFIGURATION['offset'] > list_height - 1:
+        CONFIGURATION['offset'] = CONFIGURATION['selected_line_num'] - list_height + 1
+    # offset non consistent
+    elif CONFIGURATION['offset'] > max_offset:
+        CONFIGURATION['offset'] = max_offset
+
     # Display statistics
     scr.clear()
-    height, width = scr.getmaxyx()
 
     # Title line && templates
     x = 0
@@ -470,9 +486,9 @@ def display(scr, results, conf):
 
     # Content
     lineno = 1
-    for line in results:
+    for line in results[CONFIGURATION['offset']:]:
         y = 0
-        if lineno-1 == CONFIGURATION['selected_line_num']:
+        if lineno-1 == CONFIGURATION['selected_line_num']-CONFIGURATION['offset']:
             col_reg, col_tree = curses.color_pair(2), curses.color_pair(2)
         else:
             col_reg, col_tree = colors = curses.color_pair(0), curses.color_pair(4)
