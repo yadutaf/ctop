@@ -480,7 +480,7 @@ def display(scr, results, conf):
         # Draw line background
         try:
             scr.addstr(lineno, 0, ' '*width, col_reg)
-        except:
+        except _curses.error:
             # Handle small screens
             break
 
@@ -500,14 +500,14 @@ def display(scr, results, conf):
                 scr.addstr(lineno, y, cell_tpl.format(data_point)+' ', col_reg)
                 if col.width:
                     y += col.width + 1
-        except:
+        except _curses.error:
             # Handle narrow screens
             pass
         lineno += 1
     else:
         # Make sure last line did not wrap, clear it if needed
         try: scr.addstr(lineno, 0, ' '*width)
-        except: pass
+        except _curses.error: pass
 
     # status line
     try:
@@ -542,7 +542,7 @@ def display(scr, results, conf):
             scr.addch(curses.ACS_VLINE, color)
 
         scr.addstr(" [Q]uit", color)
-    except:
+    except _curses.error:
         # Handle narrow screens
         pass
 
