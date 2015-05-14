@@ -699,7 +699,7 @@ Hint: It seems you are running inside a Docker container.
       Please make sure to expose host's cgroups with
       '--volume=/sys/fs/cgroup:/sys/fs/cgroup:ro'""", file=sys.stderr)
 
-    if subprocess.call(['which', 'boot2docker'], stdout=devnull, stderr=devnull) == 0:
+    if cmd_exists('boot2docker'):
         print("""
 Hint: It seems you have 'boot2docker' installed.
       To monitor Docker containers in 'boot2docker'
