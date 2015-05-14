@@ -685,7 +685,7 @@ def on_mouse():
 
 def on_resize():
     '''Redraw screen, do not refresh'''
-    return 1
+    return 2
 
 def event_listener(scr, timeout):
     '''
