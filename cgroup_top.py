@@ -41,7 +41,10 @@ except ImportError:
     sys.exit(0)
 
 def cmd_exists(cmd):
-    return subprocess.call(["/bin/which",  cmd], stdout=subprocess.PIPE, stderr=subprocess.PIPE) == 0
+    try:
+        return subprocess.call(["which",  cmd], stdout=subprocess.PIPE, stderr=subprocess.PIPE) == 0
+    except OSError:
+        return False
 
 HAS_LXC = cmd_exists('lxc-start')
 HAS_DOCKER = cmd_exists('docker')
