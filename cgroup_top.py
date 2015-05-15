@@ -287,27 +287,28 @@ def init():
             if arg in subsystems and arg not in CGROUP_MOUNTPOINTS:
                 CGROUP_MOUNTPOINTS[arg] = mount[1]
 
+def collect_ensure_common(data, cgroup):
+    '''
+    Some cgroup exists in only one controller. Attempt to collect common metrics
+    (tasks clount, owner, ...) from the first controller we find the task in.
+    '''
+    if 'tasks' in data:
+        return
+
+    # Collect
+    data['tasks'] = cgroup['tasks']
+    data['owner'] = cgroup.owner
+    data['type'] = cgroup.type 
+
 def collect(measures):
     cur = defaultdict(dict)
     prev = measures['data']
-
-    # Collect global data
-    if 'cpuacct' in CGROUP_MOUNTPOINTS:
-        # list all "folders" under mountpoint
-        for cgroup in cgroups(CGROUP_MOUNTPOINTS['cpuacct']):
-            # Collect tasks
-            cur[cgroup.name]['tasks'] = cgroup['tasks']
-
-            # Collect user
-            cur[cgroup.name]['owner'] = cgroup.owner
-
-            # Collect cgroup type
-            cur[cgroup.name]['type'] = cgroup.type
 
     # Collect memory statistics
     if 'memory' in CGROUP_MOUNTPOINTS:
         # list all "folders" under mountpoint
         for cgroup in cgroups(CGROUP_MOUNTPOINTS['memory']):
+            collect_ensure_common(cur[cgroup.name], cgroup)
             cur[cgroup.name]['memory.usage_in_bytes'] = cgroup['memory.usage_in_bytes']
             cur[cgroup.name]['memory.limit_in_bytes'] = min(int(cgroup['memory.limit_in_bytes']), measures['global']['total_memory'])
 
@@ -315,6 +316,8 @@ def collect(measures):
     if 'cpuacct' in CGROUP_MOUNTPOINTS:
         # list all "folders" under mountpoint
         for cgroup in cgroups(CGROUP_MOUNTPOINTS['cpuacct']):
+            collect_ensure_common(cur[cgroup.name], cgroup)
+
             # Collect CPU stats
             cur[cgroup.name]['cpuacct.stat'] = cgroup['cpuacct.stat']
             cur[cgroup.name]['cpuacct.stat.diff'] = {'user':0, 'system':0}
@@ -328,6 +331,8 @@ def collect(measures):
     if 'blkio' in CGROUP_MOUNTPOINTS:
         # list all "folders" under mountpoint
         for cgroup in cgroups(CGROUP_MOUNTPOINTS['blkio']):
+            collect_ensure_common(cur[cgroup.name], cgroup)
+
             # Collect BlockIO stats
             cur[cgroup.name]['blkio.throttle.io_service_bytes'] = cgroup['blkio.throttle.io_service_bytes']
             cur[cgroup.name]['blkio.throttle.io_service_bytes.diff'] = {'total':0}
