@@ -38,10 +38,10 @@ Features
 - optionally fold/unfold sub cgroup tree
 - optionally follow selected cgroup/container
 - optionnaly pause the refresh (typically, to select text)
-- detects Docker, LXC, unprivileged LXC and systemd based containers
-- supports advanced features for Docker and LXC based containers
+- detects Docker, LXC, unprivileged LXC, OpenVZ and systemd based containers
+- supports advanced features for Docker, LXC and OpenVZ based containers
 - open a shell/attach to supported container types for further diagnose
-- stop/kill supported container types
+- stop/kill/chekpointing supported container types
 - click to sort / reverse
 - click to select cgroup
 - no external dependencies beyond Python >= 2.6 or Python >= 3.0
@@ -113,12 +113,13 @@ Usage
 - click on title line to select sort column / reverse sort order.
 - click on any container line to select it.
 
-Additionally, for supported container types (Currently Docker and LXC):
+Additionally, for supported container types (Currently Docker, LXC and OpenVZ):
 
 - press ``a`` to attach to console output.
 - press ``e`` to open a shell in the container context. Aka 'enter' container.
 - press ``s`` to stop the container (SIGTERM).
 - press ``k`` to kill the container (SIGKILL).
+- press ``c`` to checkpointing the container(OpenVZ only now - run 'vzctl chkpnt CTID')
 
 Requirements
 ------------

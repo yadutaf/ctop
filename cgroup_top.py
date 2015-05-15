@@ -34,6 +34,7 @@ from collections import namedtuple
 
 from optparse import OptionParser
 
+
 try:
     import curses, _curses
 except ImportError:
@@ -48,6 +49,9 @@ def cmd_exists(cmd):
 
 HAS_LXC = cmd_exists('lxc-start')
 HAS_DOCKER = cmd_exists('docker')
+HAS_OPENVZ = cmd_exists('vzctl')
+regexp_ovz_container = re.compile('^/\d+$')
+
 
 HIDE_EMPTY_CGROUP = True
 CGROUP_MOUNTPOINTS={}
@@ -217,6 +221,8 @@ class Cgroup(object):
             return 'systemd'
         elif path == '/user.slice' or path == '/system.slice' or path.startswith('/system.slice/'):
             return 'systemd'
+        elif regexp_ovz_container.match(path) and path != '/0' and HAS_OPENVZ:
+            return 'openvz'
         else:
             return '-'
 
@@ -300,18 +306,23 @@ def collect_ensure_common(data, cgroup):
     data['owner'] = cgroup.owner
     data['type'] = cgroup.type 
 
+def get_user_beacounts():
+    '''
+    get memory stats(via privvmpages) from vzlist output to openvz containers
+    '''
+    prefix = []
+    if os.getuid() != 0:
+       prefix = ['sudo']
+
+    command = prefix + ['vzlist', '-o', 'ctid,privvmpages,privvmpages.l', '-H']
+    return os.popen(" ".join(command)).readlines()
+
+
 def collect(measures):
     cur = defaultdict(dict)
     prev = measures['data']
 
-    # Collect memory statistics
-    if 'memory' in CGROUP_MOUNTPOINTS:
-        # list all "folders" under mountpoint
-        for cgroup in cgroups(CGROUP_MOUNTPOINTS['memory']):
-            collect_ensure_common(cur[cgroup.name], cgroup)
-            cur[cgroup.name]['memory.usage_in_bytes'] = cgroup['memory.usage_in_bytes']
-            cur[cgroup.name]['memory.limit_in_bytes'] = min(int(cgroup['memory.limit_in_bytes']), measures['global']['total_memory'])
-
+    
     # Collect CPU statistics
     if 'cpuacct' in CGROUP_MOUNTPOINTS:
         # list all "folders" under mountpoint
@@ -342,6 +353,30 @@ def collect(measures):
                 cur_val = cur[cgroup.name]['blkio.throttle.io_service_bytes']['Total']
                 prev_val = prev[cgroup.name]['blkio.throttle.io_service_bytes']['Total']
                 cur[cgroup.name]['blkio.throttle.io_service_bytes.diff']['total'] = cur_val - prev_val
+
+    # Collect memory statistics
+    if 'memory' in CGROUP_MOUNTPOINTS:
+        # list all "folders" under mountpoint
+        for cgroup in cgroups(CGROUP_MOUNTPOINTS['memory']):
+            collect_ensure_common(cur[cgroup.name], cgroup)
+            cur[cgroup.name]['memory.usage_in_bytes'] = cgroup['memory.usage_in_bytes']
+            cur[cgroup.name]['memory.limit_in_bytes'] = min(int(cgroup['memory.limit_in_bytes']), measures['global']['total_memory'])
+
+    #Collect memory statistics for openvz
+    if HAS_OPENVZ:
+        user_beancounters = get_user_beacounts()
+        for line in user_beancounters:
+            line = line.replace('\n','')
+            undef, ctid, privvmpages, limit = re.split('\s+', line)
+            ctid = '/' + ctid
+            if 'tasks' not in cur[ctid]:
+                continue
+            privvmpages = int(privvmpages)
+            privvmpages = privvmpages * 4096
+            limit = int(limit)
+            limit = limit * 4096
+            cur[ctid]['memory.usage_in_bytes'] = privvmpages
+            cur[ctid]['memory.limit_in_bytes'] = min(limit, measures['global']['total_memory'])
 
     # Sanity check: any data at all ?
     if not len(cur):
@@ -561,9 +596,13 @@ def display(scr, results, conf):
         # Do we have any actions available for *selected* line ?
         selected_type = selected['type']
         if selected_type == 'docker' and HAS_DOCKER or \
-           selected_type in ['lxc', 'lxc-user'] and HAS_LXC:
-            scr.addstr(" [A]ttach, [E]nter, [S]top, [K]ill ", color)
-            scr.addch(curses.ACS_VLINE, color)
+           selected_type in ['lxc', 'lxc-user'] and HAS_LXC or \
+           selected_type == 'openvz' and HAS_OPENVZ:
+             if selected_type == 'openvz':
+                scr.addstr(" [A]ttach, [E]nter, [S]top, [C]hkpnt, [K]ill ", color)
+             else:
+                scr.addstr(" [A]ttach, [E]nter, [S]top, [K]ill ", color)
+             scr.addch(curses.ACS_VLINE, color)
 
         scr.addstr(" [Q]uit", color)
     except _curses.error:
@@ -604,6 +643,8 @@ def on_keyboard(c):
             run(-2, ['docker', 'attach', selected_name], interactive=True)
         elif selected['type'] in ['lxc', 'lxc-user'] and HAS_LXC:
             run(selected['owner'], ['lxc-console', '--name', selected_name, '--', '/bin/bash'], interactive=True)
+        elif selected['type'] == 'openvz' and HAS_OPENVZ:
+            run(selected['owner'], ['vzctl', 'console', selected_name], interactive=True)
 
         return 2
     elif c == ord('e'):
@@ -616,6 +657,8 @@ def on_keyboard(c):
             run(-2, ['docker', 'exec', '-it', selected_name, '/bin/bash'], interactive=True)
         elif selected['type'] in ['lxc', 'lxc-user'] and HAS_LXC:
             run(selected['owner'], ['lxc-attach', '--name', selected_name, '--', '/bin/bash'], interactive=True)
+        elif selected['type'] == 'openvz' and HAS_OPENVZ:
+            run(selected['owner'], ['vzctl', 'enter', selected_name], interactive=True)
 
         return 2
     elif c == ord('s'):
@@ -628,6 +671,17 @@ def on_keyboard(c):
             run(-2, ['docker', 'stop', selected_name])
         elif selected['type'] in ['lxc', 'lxc-user'] and HAS_LXC:
             run(selected['owner'], ['lxc-stop', '--name', selected_name, '--nokill', '--nowait'])
+        elif selected['type'] == 'openvz' and HAS_OPENVZ:
+            run(selected['owner'], ['vzctl', 'stop', selected_name])
+
+        return 1
+    elif c == ord('c'):
+        selected = CONFIGURATION['selected_line']
+        selected_name = os.path.basename(selected['cgroup'])
+
+        if selected['type'] == 'openvz' and HAS_OPENVZ:
+            run(selected['owner'], ['vzctl', 'chkpnt', selected_name])
+
         return 1
     elif c == ord('k'):
         selected = CONFIGURATION['selected_line']
@@ -639,6 +693,9 @@ def on_keyboard(c):
             run(-2, ['docker', 'stop', '-t', '0', selected_name])
         elif selected['type'] in ['lxc', 'lxc-user'] and HAS_LXC:
             run(selected['owner'], ['lxc-stop', '-k', '--name', selected_name, '--nowait'])
+        elif selected['type'] == 'openvz' and HAS_OPENVZ:
+            run(selected['owner'], ['vzctl', 'stop', selected_name, '--fast'])
+
         return 2
     elif c == 269: # F5
         CONFIGURATION['tree'] = not CONFIGURATION['tree']
