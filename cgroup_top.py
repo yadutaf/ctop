@@ -315,7 +315,8 @@ def get_user_beacounts():
        prefix = ['sudo']
 
     command = prefix + ['vzlist', '-o', 'ctid,privvmpages,privvmpages.l', '-H']
-    return os.popen(" ".join(command)).readlines()
+    output, err = subprocess.Popen(command, shell=False, stdout=subprocess.PIPE).communicate()
+    return output
 
 
 def collect(measures):
@@ -365,8 +366,9 @@ def collect(measures):
     #Collect memory statistics for openvz
     if HAS_OPENVZ:
         user_beancounters = get_user_beacounts()
-        for line in user_beancounters:
-            line = line.replace('\n','')
+        for line in user_beancounters.split('\n'):
+            if line == '':
+                continue
             undef, ctid, privvmpages, limit = re.split('\s+', line)
             ctid = '/' + ctid
             if 'tasks' not in cur[ctid]:
