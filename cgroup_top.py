@@ -249,11 +249,11 @@ class Cgroup(object):
             content = content.split('\n')
 
             if ' ' in content[0]:
-                content = dict((re.split(' +', l, 1) for l in content))
+                content = dict((re.split(' +', l, 1) for l in content if content))
                 for k, v in content.items():
                     content[k] = self._coerce(v)
             else:
-                content = [self._coerce(v) for v in content]
+                content = [self._coerce(v) for v in content if v]
 
         else:
             content = self._coerce(content)
