@@ -366,6 +366,12 @@ def collect(measures):
     #Collect memory statistics for openvz
     if HAS_OPENVZ:
         user_beancounters = get_user_beacounts()
+        # We have lines like - 
+        #      1202     202419    2457600
+        #      1203     299835    2457600
+        #      1207      54684    2457600
+        #      1210     304939    2457600
+        #1000001212      13493    2457600
         for line in user_beancounters.split('\n'):
             if line == '':
                 continue
