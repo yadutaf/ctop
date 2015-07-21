@@ -369,7 +369,11 @@ def collect(measures):
         for line in user_beancounters.split('\n'):
             if line == '':
                 continue
-            undef, ctid, privvmpages, limit = re.split('\s+', line)
+            line = re.sub(r'^\s+', '', line)
+            splited_line = re.split('\s+', line)
+            if len(splited_line) != 3:
+                continue
+            ctid, privvmpages, limit = splited_line
             ctid = '/' + ctid
             if 'tasks' not in cur[ctid]:
                 continue
