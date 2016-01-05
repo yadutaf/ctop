@@ -873,7 +873,7 @@ def main():
         curses.noecho()      # do not echo text
         curses.cbreak()      # do not wait for "enter"
         curses.curs_set(0)   # hide cursor
-        stdscr.keypad(1)     # parse keypad controll sequences
+        stdscr.keypad(1)     # parse keypad control sequences
         curses.mousemask(curses.ALL_MOUSE_EVENTS)
 
         # Curses colors

@@ -72,7 +72,7 @@ and run it in place. All you'll need is Python 2.6 (Debian Squeeze):
 
 Alternatively, if you are a Boot2docker user, you may install a Dockerized
 version of ctop instead. Please note that this is experimental and that you
-may not be able to controll / attach to your containers from ctop using this
+may not be able to control / attach to your containers from ctop using this
 method:
 
 .. code:: bash
