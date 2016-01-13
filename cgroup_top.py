@@ -14,6 +14,7 @@ Options:
   --refresh=<seconds>    Refresh display every <seconds> [default: 1].
   --columns=<columns>    List of optional columns to display. Always includes 'name'. [default: owner,processes,memory,cpu-sys,cpu-user,blkio,cpu-time].
   --sort-col=<sort-col>  Select column to sort by initially. Can be changed dynamically. [default: cpu-user]
+  --type=[types]         Only keep containers of this types
   -h --help              Show this screen.
 
 '''
@@ -70,6 +71,7 @@ CONFIGURATION = {
         'selected_line_name': '/',
         'cgroups': [],
         'fold': [],
+        'type': [],
 }
 
 Column = namedtuple('Column', ['title', 'width', 'align', 'col_fmt', 'col_data', 'col_sort'])
@@ -446,7 +448,6 @@ def render_tree(results, tree, level=0, prefix=[], node='/'):
     for i, line in enumerate(tree[node]):
         cgroup = line['cgroup']
 
-
         # Build name
         if i == len(tree[node]) - 1:
             line['_tree'] = prefix + [curses.ACS_LLCORNER, curses.ACS_HLINE, ' ']
@@ -462,10 +463,46 @@ def render_tree(results, tree, level=0, prefix=[], node='/'):
         else:
             line['_tree'] [-2] = '+'
 
+def filter_tree(tree, keep, node='/'):
+    '''
+    Keep a branch if and only if it is of of a 'keep' type or has a child of
+    the 'keep' type
+    '''
+    filtered = []
+
+    # Filter
+    for cgroup in tree.get(node, []):
+        if filter_tree(tree, keep, cgroup['cgroup']):
+            filtered.append(cgroup)
+        elif cgroup['type'] in keep:
+            filtered.append(cgroup)
+
+    # Commit
+    if filtered:
+        tree[node] = filtered
+    else:
+        tree.pop(node, None)
+
+    return bool(filtered)
+
 def prepare_tree(results):
-    # Build tree
+    '''
+    Filter results for matching types and render tree
+    '''
+    ## List view
+    if not CONFIGURATION['tree']:
+        # Fast track: if there is no filter, do not filter
+        if not CONFIGURATION['type']:
+            return results
+
+        # Slow track: do filter
+        return [l for l in results if l['type'] in CONFIGURATION['type']]
+
+    ## Tree view
     tree = {}
     rendered = []
+
+    # Build tree
     for line in results:
         cgroup = line['cgroup']
         parent = os.path.dirname(cgroup)
@@ -480,16 +517,18 @@ def prepare_tree(results):
             tree[parent] = []
         tree[parent].append(line)
 
+    # If there are filters, filter
+    if CONFIGURATION['type']:
+         filter_tree(tree, CONFIGURATION['type'])
+
     # Render tree, starting from root
     render_tree(rendered, tree)
     return rendered
 
 def display(scr, results, conf):
-    # Sort
+    # Sort and render
     results = sorted(results, key=lambda line: line.get(conf['sort_by'], 0), reverse=not conf['sort_asc'])
-
-    if CONFIGURATION['tree']:
-        results = prepare_tree(results)
+    results = prepare_tree(results)
 
     CONFIGURATION['cgroups'] = [cgroup['cgroup'] for cgroup in results]
 
@@ -822,6 +861,7 @@ def main():
     parser.add_option("--refresh",  action="store",      type="int",    default=1,     help="Refresh display every <seconds>")
     parser.add_option("--follow",   action="store",      type="string", default="",    help="Follow cgroup path")
     parser.add_option("--fold",     action="append",                                   help="Fold cgroup sub tree")
+    parser.add_option("--type",     action="append",                                   help="Only show containers of this type")
     parser.add_option("--columns",  action="store",      type="string", default="owner,type,processes,memory,cpu-sys,cpu-user,blkio,cpu-time", help="List of optional columns to display. Always includes 'name'")
     parser.add_option("--sort-col", action="store",      type="string", default="cpu-user", help="Select column to sort by initially. Can be changed dynamically.")
 
@@ -831,6 +871,7 @@ def main():
     CONFIGURATION['refresh_interval'] = float(options.refresh)
     CONFIGURATION['columns'] = []
     CONFIGURATION['fold'] = options.fold or list()
+    CONFIGURATION['type'] = options.type or list()
 
     if options.follow:
         CONFIGURATION['selected_line_name'] = options.follow

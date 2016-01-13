@@ -34,6 +34,7 @@ Features
 - collect cpu, memory and blkio metrics
 - collect metadata like task count, owning user, container technology
 - sort by any column
+- filter by container type (docker, lxc, systemd, ...)
 - optionally display logical/tree view
 - optionally fold/unfold sub cgroup tree
 - optionally follow selected cgroup/container
@@ -89,13 +90,14 @@ Usage
   Monitor local cgroups as used by Docker, LXC, SystemD, ...
 
   Usage:
-    ctop [--tree] [--refresh=<seconds>] [--columns=<columns>] [--sort-col=<sort-col>] [--follow=<name>] [--fold=<cgroup>, ...]
+    ctop [--tree] [--refresh=<seconds>] [--columns=<columns>] [--sort-col=<sort-col>] [--follow=<name>] [--fold=<cgroup>, ...] [--type=<container type>, ...]
     ctop (-h | --help)
 
   Options:
     --tree                 Show tree view by default.
     --fold=<name>          Start with <name> cgroup path folded
     --follow=<name>        Follow/highlight cgroup at path.
+    --type=TYPE            Only show containers of this type
     --refresh=<seconds>    Refresh display every <seconds> [default: 1].
     --columns=<columns>    List of optional columns to display. Always includes 'name'. [default: owner,processes,memory,cpu-sys,cpu-user,blkio,cpu-time].
     --sort-col=<sort-col>  Select column to sort by initially. Can be changed dynamically. [default: cpu-user]
