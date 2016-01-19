@@ -26,6 +26,7 @@ import stat
 import pwd
 import time
 import pty
+import errno
 import subprocess
 import multiprocessing
 
@@ -346,8 +347,14 @@ def collect(measures):
             collect_ensure_common(cur[cgroup.name], cgroup)
 
             # Collect BlockIO stats
-            cur[cgroup.name]['blkio.throttle.io_service_bytes'] = cgroup['blkio.throttle.io_service_bytes']
-            cur[cgroup.name]['blkio.throttle.io_service_bytes.diff'] = {'total':0}
+            try:
+                cur[cgroup.name]['blkio.throttle.io_service_bytes'] = cgroup['blkio.throttle.io_service_bytes']
+                cur[cgroup.name]['blkio.throttle.io_service_bytes.diff'] = {'total':0}
+            except IOError as e:
+                # Workaround broken systems (see #15)
+                if e.errno == errno.ENOENT:
+                    continue
+                raise
 
             # Collect BlockIO increase on run > 1
             if cgroup.name in prev:
