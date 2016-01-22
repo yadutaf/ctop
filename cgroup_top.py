@@ -173,12 +173,7 @@ def run(user, cmd, interactive=False):
         pty.spawn(prefix+cmd)
 
         # Restore screen
-        curses.start_color() # load colors
-        curses.use_default_colors()
-        curses.noecho()      # do not echo text
-        curses.cbreak()      # do not wait for "enter"
-        curses.curs_set(0)   # hide cursor
-        curses.mousemask(curses.ALL_MOUSE_EVENTS)
+        init_screen()
         curses.resetty()
     else:
         with open('/dev/null', 'w') as dev_null:
@@ -854,6 +849,20 @@ Hint: It seems you have 'boot2docker' installed.
       $ docker run --volume=/sys/fs/cgroup:/sys/fs/cgroup:ro -it --rm yadutaf/ctop""", file=sys.stderr)
     devnull.close()
 
+def init_screen():
+    curses.start_color() # load colors
+    curses.use_default_colors()
+    curses.noecho()      # do not echo text
+    curses.cbreak()      # do not wait for "enter"
+    curses.mousemask(curses.ALL_MOUSE_EVENTS)
+
+    # Hide cursor, if terminal AND curse supports it
+    if hasattr(curses, 'curs_set'):
+        try:
+            curses.curs_set(0)
+        except:
+            pass
+
 def main():
     # Parse arguments
     parser = OptionParser()
@@ -916,13 +925,8 @@ def main():
     try:
         # Curse initialization
         stdscr = curses.initscr()
-        curses.start_color() # load colors
-        curses.use_default_colors()
-        curses.noecho()      # do not echo text
-        curses.cbreak()      # do not wait for "enter"
-        curses.curs_set(0)   # hide cursor
+        init_screen()
         stdscr.keypad(1)     # parse keypad control sequences
-        curses.mousemask(curses.ALL_MOUSE_EVENTS)
 
         # Curses colors
         curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_GREEN) # header
