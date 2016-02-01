@@ -72,14 +72,14 @@ and run it in place. All you'll need is Python 2.6 (Debian Squeeze):
   ./ctop
 
 Alternatively, if you are a Boot2docker user, you may install a Dockerized
-version of ctop instead. Please note that this is experimental and that you
-may not be able to control / attach to your containers from ctop using this
-method:
+version of ctop instead. Please note that this is experimental. You have to
+have a docker binary inside your container to control / attach to your
+containers from ctop using this method:
 
 .. code:: bash
 
   docker pull yadutaf/ctop
-  docker run --volume=/sys/fs/cgroup:/sys/fs/cgroup:ro -it --rm yadutaf/ctop
+  docker run --volume=/sys/fs/cgroup:/sys/fs/cgroup:ro --volume=/var/run/docker.sock:/var/run/docker.sock -it --rm yadutaf/ctop
   # Optionally, to resolve uids to usernames, add '--volume /etc/passwd:/etc/passwd:ro'
 
 Usage
