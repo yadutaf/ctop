@@ -207,7 +207,9 @@ class Cgroup(object):
         path = self.name
 
         # Guess cgroup owner
-        if path.startswith('/docker/') or path.startswith('/system.slice/docker-'):
+        if path.startswith('/docker/') or \
+		path.startswith('/system.slice/docker-') or \
+		path.startswith('/system.slice/docker/'):
             return 'docker'
         elif path.startswith('/lxc/'):
             return 'lxc'
