@@ -304,7 +304,7 @@ def collect_ensure_common(data, cgroup):
     # Collect
     data['tasks'] = cgroup['tasks']
     data['owner'] = cgroup.owner
-    data['type'] = cgroup.type 
+    data['type'] = cgroup.type
 
 def get_user_beacounts():
     '''
@@ -323,7 +323,7 @@ def collect(measures):
     cur = defaultdict(dict)
     prev = measures['data']
 
-    
+
     # Collect CPU statistics
     if 'cpuacct' in CGROUP_MOUNTPOINTS:
         # list all "folders" under mountpoint
@@ -372,7 +372,7 @@ def collect(measures):
     #Collect memory statistics for openvz
     if HAS_OPENVZ:
         user_beancounters = get_user_beacounts()
-        # We have lines like - 
+        # We have lines like -
         #      1202     202419    2457600
         #      1203     299835    2457600
         #      1207      54684    2457600
