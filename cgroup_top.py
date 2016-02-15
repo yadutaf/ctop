@@ -30,6 +30,7 @@ import pty
 import errno
 import subprocess
 import multiprocessing
+import json
 
 from collections import defaultdict
 from collections import namedtuple
@@ -48,6 +49,38 @@ def cmd_exists(cmd):
         return subprocess.call(["which",  cmd], stdout=subprocess.PIPE, stderr=subprocess.PIPE) == 0
     except OSError:
         return False
+
+
+def docker_container_name(container_id, default, cache=dict()):
+    cached_name = cache.get(container_id)
+    if cached_name:
+        return cached_name
+
+    sp = subprocess.Popen(['docker', 'inspect', container_id], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    for _ in range(10):
+        sp.poll()
+        if sp.returncode is not None:
+            break
+        time.sleep(0.1)
+
+    if sp.returncode is None:
+        try:
+            sp.kill()
+        except OSError:
+            # OSError: [Errno 3] No such process
+            pass
+    elif sp.returncode == 0:
+        stdout, _stderr = sp.communicate()
+        data = json.loads(stdout)
+        if len(data) == 1 and data[0].get('Name'):
+            name = data[0]['Name'].lstrip('/')
+            name = '/docker/' + name
+            cache[container_id] = name
+            return name
+
+    cache[container_id] = default
+    return container_id
+
 
 HAS_LXC = cmd_exists('lxc-start')
 HAS_DOCKER = cmd_exists('docker')
@@ -190,8 +223,19 @@ class Cgroup(object):
         self.base_path = base_path
 
     @property
-    def name(self):
+    def short_path(self):
         return self.path[len(self.base_path):] or '/'
+
+    @property
+    def name(self):
+        if self.type == 'docker':
+            container_id = self.short_path
+            container_id = container_id.split("/docker/").pop()
+            container_id = container_id.split("/system.slice/docker-").pop()
+            container_id = container_id.split("/system.slice/docker/").pop()
+            return docker_container_name(container_id, self.short_path)
+
+        return self.short_path
 
     @property
     def owner(self):
@@ -204,7 +248,7 @@ class Cgroup(object):
 
     @property
     def type(self):
-        path = self.name
+        path = self.short_path
 
         # Guess cgroup owner
         if path.startswith('/docker/') or \
