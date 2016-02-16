@@ -30,6 +30,7 @@ import pty
 import errno
 import subprocess
 import multiprocessing
+import json
 
 from collections import defaultdict
 from collections import namedtuple
@@ -90,6 +91,8 @@ COLUMNS_AVAILABLE = {
     'name':      Column("CGROUP",  '', '<', '{0:%ss}',      'cgroup',          'cgroup'),
 }
 
+DOCKER_PREFIXES = ["/docker/", "/system.slice/docker-", "/system.slice/docker/"]
+
 # TODO:
 # - visual CPU/memory usage
 # - auto-color
@@ -99,6 +102,60 @@ COLUMNS_AVAILABLE = {
 # - massive refactoring. This code U-G-L-Y
 
 ## Utils
+
+
+def strip_prefix(prefix, text):
+    if text.startswith(prefix):
+        return text[len(prefix):]
+    return text
+
+
+def docker_container_name(container_id, default, cache=dict()):
+    # Python's default arguments are evaluated when the function is
+    # defined, not when the function is called.
+    # We potentially cache and return a default value so we don't spend time
+    # pointlessly retrying to get the container name if something goes wrong.
+    cached_name = cache.get(container_id)
+    if cached_name:
+        return cached_name
+
+    try:
+        sp = subprocess.Popen(['docker', 'inspect', container_id],
+                              stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE)
+    except OSError:
+        # `docker` is not on PATH
+        cache[container_id] = default
+        return default
+
+    for _ in range(10):
+        sp.poll()
+        if sp.returncode is not None:
+            break
+        time.sleep(0.1)
+
+    if sp.returncode is None:
+        try:
+            sp.kill()
+        except OSError:
+            # OSError: [Errno 3] No such process
+            pass
+    elif sp.returncode == 0:
+        stdout, _stderr = sp.communicate()
+        try:
+            containers = json.loads(stdout)
+            if len(containers) == 1:
+                container = containers[0]
+                container_name = container['Name'].lstrip('/')
+                name = '/docker/' + container_name
+                cache[container_id] = name
+                return name
+        except Exception:
+            pass
+
+    cache[container_id] = default
+    return default
+
 
 def to_human(num, suffix='B'):
     num = int(num)
@@ -190,8 +247,18 @@ class Cgroup(object):
         self.base_path = base_path
 
     @property
-    def name(self):
+    def short_path(self):
         return self.path[len(self.base_path):] or '/'
+
+    @property
+    def name(self):
+        if HAS_DOCKER and self.type == 'docker':
+            container_id = self.short_path
+            for prefix in DOCKER_PREFIXES:
+                container_id = strip_prefix(prefix, container_id)
+            return docker_container_name(container_id, default=self.short_path)
+
+        return self.short_path
 
     @property
     def owner(self):
@@ -204,12 +271,10 @@ class Cgroup(object):
 
     @property
     def type(self):
-        path = self.name
+        path = self.short_path
 
         # Guess cgroup owner
-        if path.startswith('/docker/') or \
-		path.startswith('/system.slice/docker-') or \
-		path.startswith('/system.slice/docker/'):
+        if any(path.startswith(prefix) for prefix in DOCKER_PREFIXES):
             return 'docker'
         elif path.startswith('/lxc/'):
             return 'lxc'
@@ -304,7 +369,7 @@ def collect_ensure_common(data, cgroup):
     # Collect
     data['tasks'] = cgroup['tasks']
     data['owner'] = cgroup.owner
-    data['type'] = cgroup.type 
+    data['type'] = cgroup.type
 
 def get_user_beacounts():
     '''
@@ -323,7 +388,7 @@ def collect(measures):
     cur = defaultdict(dict)
     prev = measures['data']
 
-    
+
     # Collect CPU statistics
     if 'cpuacct' in CGROUP_MOUNTPOINTS:
         # list all "folders" under mountpoint
@@ -372,7 +437,7 @@ def collect(measures):
     #Collect memory statistics for openvz
     if HAS_OPENVZ:
         user_beancounters = get_user_beacounts()
-        # We have lines like - 
+        # We have lines like -
         #      1202     202419    2457600
         #      1203     299835    2457600
         #      1207      54684    2457600
