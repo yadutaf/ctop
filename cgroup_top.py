@@ -91,6 +91,8 @@ COLUMNS_AVAILABLE = {
     'name':      Column("CGROUP",  '', '<', '{0:%ss}',      'cgroup',          'cgroup'),
 }
 
+DOCKER_PREFIXES = ["/docker/", "/system.slice/docker-", "/system.slice/docker/"]
+
 # TODO:
 # - visual CPU/memory usage
 # - auto-color
@@ -100,6 +102,12 @@ COLUMNS_AVAILABLE = {
 # - massive refactoring. This code U-G-L-Y
 
 ## Utils
+
+
+def strip_prefix(prefix, text):
+    if text.startswith(prefix):
+        return text[len(prefix):]
+    return text
 
 
 def docker_container_name(container_id, default, cache=dict()):
@@ -247,10 +255,9 @@ class Cgroup(object):
     def name(self):
         if HAS_DOCKER and self.type == 'docker':
             container_id = self.short_path
-            container_id = container_id.split("/docker/").pop()
-            container_id = container_id.split("/system.slice/docker-").pop()
-            container_id = container_id.split("/system.slice/docker/").pop()
-            return docker_container_name(container_id, self.short_path)
+            for prefix in DOCKER_PREFIXES:
+                container_id = strip_prefix(prefix, container_id)
+            return docker_container_name(container_id, default=self.short_path)
 
         return self.short_path
 
@@ -268,9 +275,7 @@ class Cgroup(object):
         path = self.short_path
 
         # Guess cgroup owner
-        if path.startswith('/docker/') or \
-		path.startswith('/system.slice/docker-') or \
-		path.startswith('/system.slice/docker/'):
+        if any(path.startswith(prefix) for prefix in DOCKER_PREFIXES):
             return 'docker'
         elif path.startswith('/lxc/'):
             return 'lxc'
