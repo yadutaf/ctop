@@ -150,7 +150,7 @@ def docker_container_name(container_id, default, cache=dict()):
                 name = '/docker/' + container_name
                 cache[container_id] = name
                 return name
-        except:
+        except Exception:
             # container got killed or something else went wrong
             pass
 
