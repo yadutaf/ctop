@@ -111,7 +111,7 @@ def strip_prefix(prefix, text):
 
 
 def docker_container_name(container_id, default, cache=dict()):
-    # Python’s default arguments are evaluated when the function is
+    # Python's default arguments are evaluated when the function is
     # defined, not when the function is called.
     # We potentially cache and return a default value so we don't spend time
     # pointlessly retrying to get the container name if something goes wrong.
