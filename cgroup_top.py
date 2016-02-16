@@ -50,38 +50,6 @@ def cmd_exists(cmd):
     except OSError:
         return False
 
-
-def docker_container_name(container_id, default, cache=dict()):
-    cached_name = cache.get(container_id)
-    if cached_name:
-        return cached_name
-
-    sp = subprocess.Popen(['docker', 'inspect', container_id], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    for _ in range(10):
-        sp.poll()
-        if sp.returncode is not None:
-            break
-        time.sleep(0.1)
-
-    if sp.returncode is None:
-        try:
-            sp.kill()
-        except OSError:
-            # OSError: [Errno 3] No such process
-            pass
-    elif sp.returncode == 0:
-        stdout, _stderr = sp.communicate()
-        data = json.loads(stdout)
-        if len(data) == 1 and data[0].get('Name'):
-            name = data[0]['Name'].lstrip('/')
-            name = '/docker/' + name
-            cache[container_id] = name
-            return name
-
-    cache[container_id] = default
-    return container_id
-
-
 HAS_LXC = cmd_exists('lxc-start')
 HAS_DOCKER = cmd_exists('docker')
 HAS_OPENVZ = cmd_exists('vzctl')
@@ -132,6 +100,55 @@ COLUMNS_AVAILABLE = {
 # - massive refactoring. This code U-G-L-Y
 
 ## Utils
+
+
+def docker_container_name(container_id, default, cache=dict()):
+    # Python’s default arguments are evaluated when the function is
+    # defined, not when the function is called.
+    # We potentially cache and return a default value so we don't spend time
+    # pointlessly retrying to get the container name if something goes wrong.
+    cached_name = cache.get(container_id)
+    if cached_name:
+        return cached_name
+
+    try:
+        sp = subprocess.Popen(['docker', 'inspect', container_id],
+                              stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE)
+    except OSError:
+        # `docker` is not on PATH
+        cache[container_id] = default
+        return default
+
+    for _ in range(10):
+        sp.poll()
+        if sp.returncode is not None:
+            break
+        time.sleep(0.1)
+
+    if sp.returncode is None:
+        try:
+            sp.kill()
+        except OSError:
+            # OSError: [Errno 3] No such process
+            pass
+    elif sp.returncode == 0:
+        stdout, _stderr = sp.communicate()
+        try:
+            containers = json.loads(stdout)
+            if len(containers) == 1:
+                container = containers[0]
+                container_name = container['Name'].lstrip('/')
+                name = '/docker/' + container_name
+                cache[container_id] = name
+                return name
+        except:
+            # container got killed or something else went wrong
+            pass
+
+    cache[container_id] = default
+    return default
+
 
 def to_human(num, suffix='B'):
     num = int(num)
@@ -228,7 +245,7 @@ class Cgroup(object):
 
     @property
     def name(self):
-        if self.type == 'docker':
+        if HAS_DOCKER and self.type == 'docker':
             container_id = self.short_path
             container_id = container_id.split("/docker/").pop()
             container_id = container_id.split("/system.slice/docker-").pop()
