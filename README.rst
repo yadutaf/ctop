@@ -5,6 +5,12 @@ A command line / text based Linux Containers monitoring tool that works just lik
 
 .. image:: https://github.com/yadutaf/ctop/raw/master/screenshots/screenshot.png
 
+In a hurry?
+
+```python
+curl -sSl https://raw.githubusercontent.com/yadutaf/ctop/master/cgroup_top.py > /opt/ctop && python /opt/ctop
+```
+
 Introduction
 ------------
 

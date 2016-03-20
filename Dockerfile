@@ -1,12 +1,9 @@
 FROM python:2-alpine
 MAINTAINER Jean-Tiare Le Bigot <jt@yadutaf.fr>
 
-ENTRYPOINT ["ctop"]
+# Ctop is a single file programa. Just copy it
+COPY cgroup_top.py /app/
+
+ENTRYPOINT ["python", "/app/cgroup_top.py"]
 CMD []
 
-COPY requirements.txt /tmp/requirements.txt
-RUN pip install -r /tmp/requirements.txt && rm /tmp/requirements.txt
-
-WORKDIR /app
-COPY . /app/
-RUN pip install .
