@@ -7,9 +7,9 @@ A command line / text based Linux Containers monitoring tool that works just lik
 
 In a hurry?
 
-```python
-curl -sSl https://raw.githubusercontent.com/yadutaf/ctop/master/cgroup_top.py > /opt/ctop && python /opt/ctop
-```
+.. code:: bash
+
+    curl -sSl https://raw.githubusercontent.com/yadutaf/ctop/master/cgroup_top.py > /opt/ctop && python /opt/ctop
 
 Introduction
 ------------
