@@ -82,7 +82,7 @@ COLUMNS_MANDATORY = ['name']
 COLUMNS_AVAILABLE = {
     'owner':     Column("OWNER",   10, '<', '{0:%ss}',      'owner',           'owner'),
     'type':      Column("TYPE",    10, '<', '{0:%ss}',      'type',            'type'),
-    'processes': Column("PROC",     4, '>', '{0:%sd}',      'tasks',           'tasks'),
+    'processes': Column("PROC",    11, '>', '{0:%ss}',      'tasks',           'tasks'),
     'memory':    Column("MEMORY",  17, '^', '{0:%ss}',      'memory_cur_str',  'memory_cur_bytes'),
     'cpu-sys':   Column("SYST",     5, '^', '{0: >%s.1%%}', 'cpu_syst',        'cpu_total'),
     'cpu-user':  Column("USER",     5, '^', '{0: >%s.1%%}', 'cpu_user',        'cpu_total'),
@@ -434,6 +434,15 @@ def collect(measures):
             cur[cgroup.name]['memory.usage_in_bytes'] = cgroup['memory.usage_in_bytes']
             cur[cgroup.name]['memory.limit_in_bytes'] = min(int(cgroup['memory.limit_in_bytes']), measures['global']['total_memory'])
 
+    # Collect PIDs constraints. Root cgroup does *not* have the controller files
+    if 'pids' in CGROUP_MOUNTPOINTS:
+        # list all "folders" under mountpoint
+        for cgroup in cgroups(CGROUP_MOUNTPOINTS['pids']):
+            if cgroup.name == "/":
+                continue
+            collect_ensure_common(cur[cgroup.name], cgroup)
+            cur[cgroup.name]['pids.max'] = cgroup['pids.max']
+
     #Collect memory statistics for openvz
     if HAS_OPENVZ:
         user_beancounters = get_user_beacounts()
@@ -483,7 +492,8 @@ def built_statistics(measures, conf):
         line = {
             'owner': str(data.get('owner', 'nobody')),
             'type': str(data.get('type', 'cgroup')),
-            'tasks': len(data['tasks']),
+            'cur_tasks': len(data['tasks']),
+            'max_tasks': data.get('pids.max', 'max'),
             'memory_cur_bytes': data.get('memory.usage_in_bytes', 0),
             'memory_limit_bytes': data.get('memory.limit_in_bytes', measures['global']['total_memory']),
             'cpu_total_seconds': data.get('cpuacct.stat', {}).get('system', 0) + data.get('cpuacct.stat', {}).get('user', 0),
@@ -496,6 +506,7 @@ def built_statistics(measures, conf):
         line['cpu_total_str'] = to_human_time(line['cpu_total_seconds'])
         line['memory_cur_percent'] = line['memory_cur_bytes'] / line['memory_limit_bytes']
         line['memory_cur_str'] = "{0: >7}/{1: <7}".format(to_human(line['memory_cur_bytes']), to_human(line['memory_limit_bytes']))
+        line['tasks'] = "{0: >5}/{1: <5}".format(line['cur_tasks'], line['max_tasks'])
         line['blkio_bw'] = to_human(line['blkio_bw_bytes'], 'B/s')
         results.append(line)
 

@@ -37,7 +37,7 @@ users in low memory situations.
 Features
 --------
 
-- collect cpu, memory and blkio metrics
+- collect cpu, pids, memory and blkio metrics
 - collect metadata like task count, owning user, container technology
 - sort by any column
 - filter by container type (docker, lxc, systemd, ...)
