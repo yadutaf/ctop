@@ -1,13 +1,20 @@
 CHANGELOG
 #########
 
-v0.5.0 (unreleased)
+v1.0.0 (2016-05-13)
 ======
 
+ - feat: add openvz support
+ - feat: add pids cgroup support (max tasks)
  - feat: scroll
  - feat: repaint screen on resize
+ - feat: use Docker container names if possible
+ - improv: systemd integration
+ - improv: docker image
  - fix: use relative path to 'which' (#7)
  - fix: crash when task is not present in cpuacct controller (#9)
+ - fix: fix crash on terminals which do not support invisible cursors
+ - fix: workaround broken blkio on some system
 
 v0.4.1 (2015-05-14)
 ======
