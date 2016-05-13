@@ -93,6 +93,8 @@ Usage
 
 **Command line**:
 
+.. code:: text
+
   Monitor local cgroups as used by Docker, LXC, SystemD, ...
 
   Usage:
