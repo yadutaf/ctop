@@ -400,7 +400,7 @@ def collect(measures):
             cur[cgroup.name]['cpuacct.stat.diff'] = {'user':0, 'system':0}
 
             # Collect CPU increase on run > 1
-            if cgroup.name in prev:
+            if cgroup.name in prev and 'cpuacct.stat' in prev[cgroup.name]:
                 for key, value in cur[cgroup.name]['cpuacct.stat'].items():
                     cur[cgroup.name]['cpuacct.stat.diff'][key] = value - prev[cgroup.name]['cpuacct.stat'][key]
 
