@@ -606,18 +606,23 @@ def display(scr, results, conf):
     CONFIGURATION['cgroups'] = [cgroup['cgroup'] for cgroup in results]
 
     # Ensure selected line name synced with num
-    if CONFIGURATION['follow']:
-        while True:
-            try:
-                i = CONFIGURATION['cgroups'].index(CONFIGURATION['selected_line_name'])
-                CONFIGURATION['selected_line_num'] = i
-                break
-            except:
-                CONFIGURATION['selected_line_name'] = os.path.dirname(CONFIGURATION['selected_line_name'])
+    if results:
+        if CONFIGURATION['follow']:
+            while True:
+                try:
+                    i = CONFIGURATION['cgroups'].index(CONFIGURATION['selected_line_name'])
+                    CONFIGURATION['selected_line_num'] = i
+                    break
+                except:
+                    CONFIGURATION['selected_line_name'] = os.path.dirname(CONFIGURATION['selected_line_name'])
+        else:
+            CONFIGURATION['selected_line_num'] = min(len(results)-1, CONFIGURATION['selected_line_num'])
+            CONFIGURATION['selected_line_name'] = CONFIGURATION['cgroups'][CONFIGURATION['selected_line_num']]
+        CONFIGURATION['selected_line'] = results[CONFIGURATION['selected_line_num']]
     else:
-        CONFIGURATION['selected_line_num'] = min(len(results)-1, CONFIGURATION['selected_line_num'])
-        CONFIGURATION['selected_line_name'] = CONFIGURATION['cgroups'][CONFIGURATION['selected_line_num']]
-    CONFIGURATION['selected_line'] = results[CONFIGURATION['selected_line_num']]
+        CONFIGURATION['selected_line_num'] = 0
+        CONFIGURATION['selected_line_name'] = ''
+        CONFIGURATION['selected_line'] = None
 
     # Get display informations
     height, width = scr.getmaxyx()
@@ -708,7 +713,7 @@ def display(scr, results, conf):
             # Last char wraps, on purpose: draw full line
             pass
 
-        selected = results[CONFIGURATION['selected_line_num']]
+        selected = results[CONFIGURATION['selected_line_num']] if results else {}
 
         scr.addstr(height-1, 0, " CTOP ", color)
         scr.addch(curses.ACS_VLINE, color)
@@ -721,11 +726,11 @@ def display(scr, results, conf):
 
         # Fold control
         if CONFIGURATION['tree']:
-            scr.addstr(" [+/-] %s "%('unfold' if selected['cgroup'] in CONFIGURATION['fold'] else 'fold'), color)
+            scr.addstr(" [+/-] %s "%('unfold' if selected.get('cgroup', '') in CONFIGURATION['fold'] else 'fold'), color)
             scr.addch(curses.ACS_VLINE, color)
 
         # Do we have any actions available for *selected* line ?
-        selected_type = selected['type']
+        selected_type = selected.get('type', '')
         if selected_type == 'docker' and HAS_DOCKER or \
            selected_type in ['lxc', 'lxc-user'] and HAS_LXC or \
            selected_type == 'openvz' and HAS_OPENVZ:
@@ -756,6 +761,30 @@ def on_keyboard(c):
         CONFIGURATION['pause_refresh'] = not CONFIGURATION['pause_refresh']
     elif c == ord('f'):
         CONFIGURATION['follow'] = not CONFIGURATION['follow']
+        return 2
+    elif c == 269: # F5
+        CONFIGURATION['tree'] = not CONFIGURATION['tree']
+        return 2
+    elif c == curses.KEY_DOWN:
+        if CONFIGURATION['follow']:
+            i = CONFIGURATION['cgroups'].index(CONFIGURATION['selected_line_name'])
+        else:
+            i = CONFIGURATION['selected_line_num']
+        i = min(i+1, len(CONFIGURATION['cgroups'])-1)
+        CONFIGURATION['selected_line_num'] = i
+        CONFIGURATION['selected_line_name'] = CONFIGURATION['cgroups'][i]
+        return 2
+    elif c == curses.KEY_UP:
+        if CONFIGURATION['follow']:
+            i = CONFIGURATION['cgroups'].index(CONFIGURATION['selected_line_name'])
+        else:
+            i = CONFIGURATION['selected_line_num']
+        i = max(i-1, 0)
+        CONFIGURATION['selected_line_num'] = i
+        CONFIGURATION['selected_line_name'] = CONFIGURATION['cgroups'][i]
+        return 2
+    elif CONFIGURATION['selected_line'] is None:
+        # All following lines expect a valid selected line
         return 2
     elif c == ord('+') or c == ord('-'):
         cgroup = CONFIGURATION['selected_line']['cgroup']
@@ -827,27 +856,6 @@ def on_keyboard(c):
         elif selected['type'] == 'openvz' and HAS_OPENVZ:
             run(selected['owner'], ['vzctl', 'stop', selected_name, '--fast'])
 
-        return 2
-    elif c == 269: # F5
-        CONFIGURATION['tree'] = not CONFIGURATION['tree']
-        return 2
-    elif c == curses.KEY_DOWN:
-        if CONFIGURATION['follow']:
-            i = CONFIGURATION['cgroups'].index(CONFIGURATION['selected_line_name'])
-        else:
-            i = CONFIGURATION['selected_line_num']
-        i = min(i+1, len(CONFIGURATION['cgroups'])-1)
-        CONFIGURATION['selected_line_num'] = i
-        CONFIGURATION['selected_line_name'] = CONFIGURATION['cgroups'][i]
-        return 2
-    elif c == curses.KEY_UP:
-        if CONFIGURATION['follow']:
-            i = CONFIGURATION['cgroups'].index(CONFIGURATION['selected_line_name'])
-        else:
-            i = CONFIGURATION['selected_line_num']
-        i = max(i-1, 0)
-        CONFIGURATION['selected_line_num'] = i
-        CONFIGURATION['selected_line_name'] = CONFIGURATION['cgroups'][i]
         return 2
     return 1
 
