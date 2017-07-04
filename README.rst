@@ -56,7 +56,7 @@ Features
 Installation
 ------------
 
-As a monitoring tool, ``ctop`` tries to be as dicrete as possible. Nonetheless
+As a monitoring tool, ``ctop`` tries to be as discreet as possible. Nonetheless
 it still has some expectations. It will need at least Python 2.6 with builtin
 curses support to run. This is usually found with Debian 6 and newer.
 
