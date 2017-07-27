@@ -431,7 +431,8 @@ def collect(measures):
         # list all "folders" under mountpoint
         for cgroup in cgroups(CGROUP_MOUNTPOINTS['memory']):
             collect_ensure_common(cur[cgroup.name], cgroup)
-            cur[cgroup.name]['memory.usage_in_bytes'] = cgroup['memory.usage_in_bytes']
+            cache = cgroup['memory.stat']['cache']
+            cur[cgroup.name]['memory.usage_in_bytes'] = cgroup['memory.usage_in_bytes'] - cache
             cur[cgroup.name]['memory.limit_in_bytes'] = min(int(cgroup['memory.limit_in_bytes']), measures['global']['total_memory'])
 
     # Collect PIDs constraints. Root cgroup does *not* have the controller files

@@ -53,6 +53,9 @@ Features
 - click to select cgroup
 - no external dependencies beyond Python >= 2.6 or Python >= 3.0
 
+> Note: since 2017-07-27, the reported memory will exclude cache memory to
+> align on Docker design decision.
+
 Installation
 ------------
 
