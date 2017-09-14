@@ -54,6 +54,7 @@ HAS_LXC = cmd_exists('lxc-start')
 HAS_DOCKER = cmd_exists('docker')
 HAS_OPENVZ = cmd_exists('vzctl')
 regexp_ovz_container = re.compile('^/\d+$')
+HAS_LIBVIRT = cmd_exists('virsh')
 
 
 HIDE_EMPTY_CGROUP = True
@@ -156,6 +157,15 @@ def docker_container_name(container_id, default, cache=dict()):
     cache[container_id] = default
     return default
 
+def libvirt_vm_name(cgroup_line):
+    # Get VM name from cgroup line like
+    # /machine.slice/machine-qemu\x2d305\x2d121487.scope/emulator
+    cgroup_line = cgroup_line.replace('/machine.slice/machine-qemu','')
+    splited_line = cgroup_line.split('.scope')
+    if len(splited_line) < 1: 
+        return ''
+    splited_line = splited_line[0].split("\\x2d")
+    return splited_line[len(splited_line)-1]
 
 def to_human(num, suffix='B'):
     num = int(num)
@@ -286,6 +296,8 @@ class Cgroup(object):
             return 'systemd'
         elif path == '/user.slice' or path == '/system.slice' or path.startswith('/system.slice/'):
             return 'systemd'
+        elif path.startswith('/machine.slice/machine-qemu'):
+            return 'qemu-kvm'
         elif regexp_ovz_container.match(path) and path != '/0' and HAS_OPENVZ:
             return 'openvz'
         else:
@@ -734,9 +746,12 @@ def display(scr, results, conf):
         selected_type = selected.get('type', '')
         if selected_type == 'docker' and HAS_DOCKER or \
            selected_type in ['lxc', 'lxc-user'] and HAS_LXC or \
+           selected_type == 'qemu-kvm' and HAS_LIBVIRT or \
            selected_type == 'openvz' and HAS_OPENVZ:
              if selected_type == 'openvz':
                 scr.addstr(" [A]ttach, [E]nter, [S]top, [C]hkpnt, [K]ill ", color)
+             elif selected_type == 'qemu-kvm':
+                scr.addstr(" [A]ttach, [S]top, [K]ill ", color)
              else:
                 scr.addstr(" [A]ttach, [E]nter, [S]top, [K]ill ", color)
              scr.addch(curses.ACS_VLINE, color)
@@ -806,6 +821,8 @@ def on_keyboard(c):
             run(selected['owner'], ['lxc-console', '--name', selected_name, '--', '/bin/bash'], interactive=True)
         elif selected['type'] == 'openvz' and HAS_OPENVZ:
             run(selected['owner'], ['vzctl', 'console', selected_name], interactive=True)
+        elif selected['type'] == 'qemu-kvm' and HAS_LIBVIRT:
+            run(selected['owner'], ['virsh', 'console', libvirt_vm_name(selected['cgroup']) ], interactive=True)
 
         return 2
     elif c == ord('e'):
@@ -834,6 +851,8 @@ def on_keyboard(c):
             run(selected['owner'], ['lxc-stop', '--name', selected_name, '--nokill', '--nowait'])
         elif selected['type'] == 'openvz' and HAS_OPENVZ:
             run(selected['owner'], ['vzctl', 'stop', selected_name])
+        elif selected['type'] == 'qemu-kvm' and HAS_LIBVIRT:
+            run(selected['owner'], ['virsh', 'shutdown', libvirt_vm_name(selected['cgroup']) ])
 
         return 1
     elif c == ord('c'):
@@ -856,6 +875,8 @@ def on_keyboard(c):
             run(selected['owner'], ['lxc-stop', '-k', '--name', selected_name, '--nowait'])
         elif selected['type'] == 'openvz' and HAS_OPENVZ:
             run(selected['owner'], ['vzctl', 'stop', selected_name, '--fast'])
+        elif selected['type'] == 'qemu-kvm' and HAS_LIBVIRT:
+            run(selected['owner'], ['virsh', 'destroy', libvirt_vm_name(selected['cgroup']) ])
 
         return 2
     return 1

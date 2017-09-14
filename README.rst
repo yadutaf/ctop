@@ -47,6 +47,8 @@ Features
 - optionnaly pause the refresh (typically, to select text)
 - detects Docker, LXC, unprivileged LXC, OpenVZ and systemd based containers
 - supports advanced features for Docker, LXC and OpenVZ based containers
+- detects qemu-kvm virtual machines (with libvirt only)
+- supports advanced features for qemu-kvm VMs (via virsh)
 - open a shell/attach to supported container types for further diagnose
 - stop/kill/chekpointing supported container types
 - click to sort / reverse
